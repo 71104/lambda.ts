@@ -1,5 +1,5 @@
 import { RuntimeError } from './errors.js';
-import { ValueContext, ValueInterface } from './values.js';
+import { Closure, ValueContext, ValueInterface } from './values.js';
 
 export interface NodeInterface {
   /**
@@ -30,6 +30,34 @@ export class VariableNode implements NodeInterface {
       return context.top(this.name);
     } else {
       throw new RuntimeError(`unknown variable ${JSON.stringify(this.name)}`);
+    }
+  }
+}
+
+export class LambdaNode implements NodeInterface {
+  public constructor(
+    public readonly name: string,
+    public readonly body: NodeInterface,
+  ) {}
+
+  public evaluate(context: ValueContext): Closure {
+    return new Closure(context, this.name, this.body);
+  }
+}
+
+export class ApplicationNode implements NodeInterface {
+  public constructor(
+    public readonly left: NodeInterface,
+    public readonly right: NodeInterface,
+  ) {}
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const left = this.left.evaluate(context);
+    if (left instanceof Closure) {
+      const right = this.right.evaluate(context);
+      return left.body.evaluate(context.push(left.name, right));
+    } else {
+      throw new RuntimeError('cannot apply a non-closure value');
     }
   }
 }

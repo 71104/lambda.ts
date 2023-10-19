@@ -1,4 +1,18 @@
-export type Token = 'identifier' | 'end';
+export type Token =
+  | 'arrow'
+  | 'bracket-left'
+  | 'bracket-right'
+  | 'comma'
+  | 'complex'
+  | 'identifier'
+  | 'keyword:false'
+  | 'keyword:fn'
+  | 'keyword:true'
+  | 'keyword:undefined'
+  | 'natural'
+  | 'real'
+  | 'string'
+  | 'end';
 
 export type TokenExpectation = Token | 'identifier-or-keyword';
 
@@ -7,7 +21,27 @@ export class Lexer {
     ['end', /^$/],
 
     // word-like
+    ['keyword:undefined', /^undefined\b/],
+    ['keyword:true', /^true\b/],
+    ['keyword:fn', /^fn\b/],
+    ['keyword:false', /^false\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
+
+    // strings and templates
+    ['string', /^('[^']*(\\'[^']*)*'|"[^"]*(\\"[^"]*)*")/],
+
+    // numbers
+    ['complex', /^[0-9]+(\.[0-9]+)?i\b/],
+    ['real', /^[0-9]+\.[0-9]+\b/],
+    ['natural', /^[0-9]+\b/],
+
+    // two-character symbols
+    ['arrow', /^->/],
+
+    // single-character symbols
+    ['bracket-left', /^\(/],
+    ['bracket-right', /^\)/],
+    ['comma', /^,/],
   ];
 
   public readonly _originalInput: string;
