@@ -21,8 +21,6 @@ export interface NodeInterface {
   evaluate(context: ValueContext): ValueInterface;
 }
 
-const EMPTY_FREE_VAR_SET = new Set<string>();
-
 export class LiteralNode implements NodeInterface {
   public constructor(
     public readonly value: ValueInterface,
@@ -30,7 +28,7 @@ export class LiteralNode implements NodeInterface {
   ) {}
 
   public getFreeVariables(): Set<string> {
-    return EMPTY_FREE_VAR_SET;
+    return new Set<string>();
   }
 
   public evaluate(): ValueInterface {

@@ -3,6 +3,8 @@ import { Context } from './context.js';
 export abstract class TauType {
   public abstract toString(): string;
 
+  public abstract getFreeVariables(): Set<string>;
+
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 }
 
@@ -10,7 +12,11 @@ export type Substitution = Context<TauType>;
 export const Substitution = Context<TauType>;
 export const EMPTY_SUBSTITUTION = Substitution.create<TauType>();
 
-export abstract class IotaType extends TauType {}
+export abstract class IotaType extends TauType {
+  public getFreeVariables(): Set<string> {
+    return new Set<string>();
+  }
+}
 
 export class TypeScheme {
   public constructor(
@@ -50,6 +56,10 @@ export class VariableType extends TauType {
     return this.name;
   }
 
+  public getFreeVariables(): Set<string> {
+    return new Set<string>([this.name]);
+  }
+
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
       return substitution.top(this.name).leq(other, substitution);
@@ -61,8 +71,9 @@ export class VariableType extends TauType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other.getFreeVariables().has(this.name)) {
+      return null;
     } else {
-      // TODO: check ftv(other) to avoid loops
       return substitution.push(this.name, other);
     }
   }
@@ -291,6 +302,10 @@ export class LambdaType extends TauType {
 
   public toString(): string {
     return `fn (${this.left.toString()}) => (${this.right.toString()})`;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>([...this.left.getFreeVariables(), ...this.right.getFreeVariables()]);
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
