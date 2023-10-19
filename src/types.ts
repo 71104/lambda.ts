@@ -2,6 +2,8 @@ import { Context } from './context.js';
 
 export abstract class TauType {
   public abstract toString(): string;
+
+  public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 }
 
 export type Substitution = Context<TauType>;
@@ -29,6 +31,43 @@ export type TypeContext = Context<TypeScheme>;
 export const TypeContext = Context<TypeScheme>;
 export const EMPTY_TYPE_CONTEXT = TypeContext.create<TypeScheme>();
 
+export class VariableType extends TauType {
+  private static _next_id = 0;
+
+  public static resetNextId(): void {
+    VariableType._next_id = 0;
+  }
+
+  public constructor(public readonly name: string) {
+    super();
+  }
+
+  public static getNew(): VariableType {
+    return new VariableType('#' + VariableType._next_id++);
+  }
+
+  public toString(): string {
+    return this.name;
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (substitution.has(this.name)) {
+      return substitution.top(this.name).leq(other, substitution);
+    } else if (other instanceof VariableType) {
+      if (this.name === other.name) {
+        return substitution;
+      } else if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      // TODO: check ftv(other) to avoid loops
+      return substitution.push(this.name, other);
+    }
+  }
+}
+
 export class UndefinedType extends IotaType {
   public static readonly INSTANCE = new UndefinedType();
 
@@ -38,6 +77,36 @@ export class UndefinedType extends IotaType {
 
   public toString(): string {
     return 'undefined';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
+}
+
+export class UnknownType extends IotaType {
+  public static readonly INSTANCE = new UnknownType();
+
+  private constructor() {
+    super();
+  }
+
+  public toString(): string {
+    return 'unknown';
+  }
+
+  public leq(_other: TauType, substitution: Substitution): Substitution | null {
+    return substitution;
   }
 }
 
@@ -51,6 +120,20 @@ export class BooleanType extends IotaType {
   public toString(): string {
     return 'boolean';
   }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType || other instanceof BooleanType) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
 }
 
 export class ComplexType extends IotaType {
@@ -62,6 +145,20 @@ export class ComplexType extends IotaType {
 
   public toString(): string {
     return 'complex';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType || other instanceof ComplexType) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
   }
 }
 
@@ -75,6 +172,24 @@ export class RealType extends IotaType {
   public toString(): string {
     return 'real';
   }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (
+      other instanceof UndefinedType ||
+      other instanceof ComplexType ||
+      other instanceof RealType
+    ) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
 }
 
 export class IntegerType extends IotaType {
@@ -86,6 +201,25 @@ export class IntegerType extends IotaType {
 
   public toString(): string {
     return 'integer';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (
+      other instanceof UndefinedType ||
+      other instanceof ComplexType ||
+      other instanceof RealType ||
+      other instanceof IntegerType
+    ) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
   }
 }
 
@@ -99,6 +233,26 @@ export class NaturalType extends IotaType {
   public toString(): string {
     return 'natural';
   }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (
+      other instanceof UndefinedType ||
+      other instanceof ComplexType ||
+      other instanceof RealType ||
+      other instanceof IntegerType ||
+      other instanceof NaturalType
+    ) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
 }
 
 export class StringType extends IotaType {
@@ -110,5 +264,53 @@ export class StringType extends IotaType {
 
   public toString(): string {
     return 'string';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType || other instanceof StringType) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
+}
+
+export class LambdaType extends TauType {
+  public constructor(
+    public readonly left: TauType,
+    public readonly right: TauType,
+  ) {
+    super();
+  }
+
+  public toString(): string {
+    return `fn (${this.left.toString()}) => (${this.right.toString()})`;
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType) {
+      return substitution;
+    } else if (other instanceof LambdaType) {
+      const leftResult = other.left.leq(this.left, substitution);
+      if (leftResult) {
+        return this.right.leq(other.right, leftResult);
+      } else {
+        return null;
+      }
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
   }
 }
