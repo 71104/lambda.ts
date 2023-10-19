@@ -1,5 +1,12 @@
-import { ApplicationNode, LambdaNode, LiteralNode, NodeInterface, VariableNode } from './ast.js';
-import { SyntaxError } from './errors.js';
+import {
+  ApplicationNode,
+  LambdaNode,
+  LetNode,
+  LiteralNode,
+  NodeInterface,
+  VariableNode,
+} from './ast.js';
+import { InternalError, SyntaxError } from './errors.js';
 import { Lexer, Token } from './lexer.js';
 import {
   BooleanValue,
@@ -47,6 +54,27 @@ export class Parser {
     return this._parseLambdaInternal(terminators);
   }
 
+  private _parseLetInternal(terminators: Token[]): NodeInterface {
+    const name = this._lexer.expect('identifier');
+    this._lexer.skip('assign');
+    const expression = this._parseRoot(['comma', 'keyword:in']);
+    switch (this._lexer.token) {
+      case 'comma':
+        this._lexer.next();
+        return new LetNode(name, expression, this._parseLetInternal(terminators));
+      case 'keyword:in':
+        this._lexer.next();
+        return new LetNode(name, expression, this._parseRoot(terminators));
+      default:
+        throw new InternalError(`unexpected token '${this._lexer.token}'`);
+    }
+  }
+
+  private _parseLet(terminators: Token[]): NodeInterface {
+    this._lexer.skip('keyword:let');
+    return this._parseLetInternal(terminators);
+  }
+
   private _parse0(terminators: Token[]): NodeInterface {
     switch (this._lexer.token) {
       case 'bracket-left': {
@@ -64,6 +92,8 @@ export class Parser {
         return new LiteralNode(BooleanValue.FALSE);
       case 'keyword:fn':
         return this._parseLambda(terminators);
+      case 'keyword:let':
+        return this._parseLet(terminators);
       case 'keyword:true':
         this._lexer.next();
         return new LiteralNode(BooleanValue.TRUE);

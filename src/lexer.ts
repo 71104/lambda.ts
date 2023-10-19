@@ -1,5 +1,6 @@
 export type Token =
   | 'arrow'
+  | 'assign'
   | 'bracket-left'
   | 'bracket-right'
   | 'comma'
@@ -7,6 +8,8 @@ export type Token =
   | 'identifier'
   | 'keyword:false'
   | 'keyword:fn'
+  | 'keyword:in'
+  | 'keyword:let'
   | 'keyword:true'
   | 'keyword:undefined'
   | 'natural'
@@ -23,6 +26,8 @@ export class Lexer {
     // word-like
     ['keyword:undefined', /^undefined\b/],
     ['keyword:true', /^true\b/],
+    ['keyword:let', /^let\b/],
+    ['keyword:in', /^in\b/],
     ['keyword:fn', /^fn\b/],
     ['keyword:false', /^false\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
@@ -39,6 +44,7 @@ export class Lexer {
     ['arrow', /^->/],
 
     // single-character symbols
+    ['assign', /^=/],
     ['bracket-left', /^\(/],
     ['bracket-right', /^\)/],
     ['comma', /^,/],

@@ -60,3 +60,15 @@ export class ApplicationNode implements NodeInterface {
     }
   }
 }
+
+export class LetNode implements NodeInterface {
+  public constructor(
+    public readonly name: string,
+    public readonly expression: NodeInterface,
+    public readonly rest: NodeInterface,
+  ) {}
+
+  public evaluate(context: ValueContext): ValueInterface {
+    return this.rest.evaluate(context.push(this.name, this.expression.evaluate(context)));
+  }
+}
