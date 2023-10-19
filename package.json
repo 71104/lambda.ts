@@ -1,0 +1,46 @@
+{
+  "name": "lambda",
+  "version": "0.11.0",
+  "description": "The Lambda programming language.",
+  "type": "module",
+  "files": [
+    "dist/"
+  ],
+  "main": "dist/lambda.js",
+  "scripts": {
+    "start": "node dist/cli.js",
+    "eslint": "npx eslint .",
+    "prettier": "npx prettier .",
+    "build": "tsc -p tsconfig.json",
+    "mocha": "npx mocha",
+    "test": "tsc -p tsconfig.json && npx mocha",
+    "typedoc": "npx typedoc src/*",
+    "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "lambda": "dist/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/71104/lambda.git"
+  },
+  "author": "Alberto La Rocca <a71104@gmail.com> (https://github.com/71104)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/71104/lambda/issues"
+  },
+  "homepage": "https://github.com/71104/lambda#readme",
+  "devDependencies": {
+    "@types/node": "^20.8.7",
+    "@typescript-eslint/eslint-plugin": "^6.8.0",
+    "@typescript-eslint/parser": "^6.8.0",
+    "chai": "^4.3.10",
+    "eslint": "^8.51.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-mocha": "^10.2.0",
+    "mocha": "^10.2.0",
+    "prettier": "^3.0.3",
+    "typedoc": "^0.25.2",
+    "typescript": "^5.2.2"
+  }
+}
