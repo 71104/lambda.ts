@@ -1,5 +1,5 @@
 import { RuntimeError } from './errors.js';
-import { IotaType } from './types.js';
+import { IotaType, TauType, TypeScheme } from './types.js';
 import { Closure, ValueContext, ValueInterface } from './values.js';
 
 export interface NodeInterface {
@@ -57,6 +57,7 @@ export class VariableNode implements NodeInterface {
 export class LambdaNode implements NodeInterface {
   public constructor(
     public readonly name: string,
+    public readonly type: TauType | null,
     public readonly body: NodeInterface,
   ) {}
 
@@ -94,6 +95,7 @@ export class ApplicationNode implements NodeInterface {
 export class LetNode implements NodeInterface {
   public constructor(
     public readonly name: string,
+    public readonly type: TypeScheme | null,
     public readonly expression: NodeInterface,
     public readonly rest: NodeInterface,
   ) {}

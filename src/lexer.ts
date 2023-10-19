@@ -3,13 +3,22 @@ export type Token =
   | 'assign'
   | 'bracket-left'
   | 'bracket-right'
+  | 'colon'
   | 'comma'
   | 'complex'
+  | 'fat-arrow'
   | 'identifier'
+  | 'keyword:boolean'
+  | 'keyword:complex'
   | 'keyword:false'
   | 'keyword:fn'
   | 'keyword:in'
+  | 'keyword:integer'
   | 'keyword:let'
+  | 'keyword:natural'
+  | 'keyword:real'
+  | 'keyword:scheme'
+  | 'keyword:string'
   | 'keyword:true'
   | 'keyword:undefined'
   | 'natural'
@@ -26,10 +35,17 @@ export class Lexer {
     // word-like
     ['keyword:undefined', /^undefined\b/],
     ['keyword:true', /^true\b/],
+    ['keyword:string', /^string\b/],
+    ['keyword:scheme', /^scheme\b/],
+    ['keyword:real', /^real\b/],
+    ['keyword:natural', /^natural\b/],
     ['keyword:let', /^let\b/],
+    ['keyword:integer', /^integer\b/],
     ['keyword:in', /^in\b/],
     ['keyword:fn', /^fn\b/],
     ['keyword:false', /^false\b/],
+    ['keyword:complex', /^complex\b/],
+    ['keyword:boolean', /^boolean\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
 
     // strings and templates
@@ -42,11 +58,13 @@ export class Lexer {
 
     // two-character symbols
     ['arrow', /^->/],
+    ['fat-arrow', /^=>/],
 
     // single-character symbols
     ['assign', /^=/],
     ['bracket-left', /^\(/],
     ['bracket-right', /^\)/],
+    ['colon', /^:/],
     ['comma', /^,/],
   ];
 

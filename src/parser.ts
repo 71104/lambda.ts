@@ -11,10 +11,15 @@ import { Lexer, Token } from './lexer.js';
 import {
   BooleanType,
   ComplexType,
+  IntegerType,
+  LambdaType,
   NaturalType,
   RealType,
   StringType,
+  TauType,
+  TypeScheme,
   UndefinedType,
+  VariableType,
 } from './types.js';
 import {
   BooleanValue,
@@ -43,15 +48,84 @@ export class Parser {
     this._lexer = new Lexer(input);
   }
 
+  private _parseType(): TauType {
+    switch (this._lexer.token) {
+      case 'bracket-left': {
+        this._lexer.next();
+        const type = this._parseType();
+        this._lexer.skip('bracket-right');
+        return type;
+      }
+      case 'identifier':
+        return new VariableType(this._lexer.step());
+      case 'keyword:boolean':
+        this._lexer.next();
+        return BooleanType.INSTANCE;
+      case 'keyword:complex':
+        this._lexer.next();
+        return ComplexType.INSTANCE;
+      case 'keyword:fn': {
+        this._lexer.next();
+        const left = this._parseType();
+        this._lexer.expect('fat-arrow');
+        const right = this._parseType();
+        return new LambdaType(left, right);
+      }
+      case 'keyword:integer':
+        this._lexer.next();
+        return IntegerType.INSTANCE;
+      case 'keyword:natural':
+        this._lexer.next();
+        return NaturalType.INSTANCE;
+      case 'keyword:real':
+        this._lexer.next();
+        return RealType.INSTANCE;
+      case 'keyword:string':
+        this._lexer.next();
+        return StringType.INSTANCE;
+      default:
+        throw new SyntaxError(`unexpected token: '${this._lexer.token}'`);
+    }
+  }
+
+  private _parseOptionalType(): TauType | null {
+    if ('colon' !== this._lexer.token) {
+      return null;
+    } else {
+      this._lexer.next();
+      return this._parseType();
+    }
+  }
+
+  private _parseOptionalTypeScheme(): TypeScheme | null {
+    if ('colon' !== this._lexer.token) {
+      return null;
+    }
+    if (this._lexer.next() !== 'keyword:scheme') {
+      return new TypeScheme([], this._parseType());
+    } else {
+      const names: string[] = [];
+      do {
+        this._lexer.next();
+        names.push(this._lexer.expect('identifier'));
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+      } while (this._lexer.token === 'comma');
+      this._lexer.skip('fat-arrow');
+      return new TypeScheme(names, this._parseType());
+    }
+  }
+
   private _parseLambdaInternal(terminators: Token[]): NodeInterface {
     const name = this._lexer.expect('identifier');
+    const type = this._parseOptionalType();
     switch (this._lexer.token) {
       case 'comma':
         this._lexer.next();
-        return new LambdaNode(name, this._parseLambdaInternal(terminators));
+        return new LambdaNode(name, type, this._parseLambdaInternal(terminators));
       case 'arrow':
         this._lexer.next();
-        return new LambdaNode(name, this._parseRoot(terminators));
+        return new LambdaNode(name, type, this._parseRoot(terminators));
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }
@@ -64,15 +138,16 @@ export class Parser {
 
   private _parseLetInternal(terminators: Token[]): NodeInterface {
     const name = this._lexer.expect('identifier');
+    const type = this._parseOptionalTypeScheme();
     this._lexer.skip('assign');
     const expression = this._parseRoot(['comma', 'keyword:in']);
     switch (this._lexer.token) {
       case 'comma':
         this._lexer.next();
-        return new LetNode(name, expression, this._parseLetInternal(terminators));
+        return new LetNode(name, type, expression, this._parseLetInternal(terminators));
       case 'keyword:in':
         this._lexer.next();
-        return new LetNode(name, expression, this._parseRoot(terminators));
+        return new LetNode(name, type, expression, this._parseRoot(terminators));
       default:
         throw new InternalError(`unexpected token '${this._lexer.token}'`);
     }
