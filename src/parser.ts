@@ -9,6 +9,14 @@ import {
 import { InternalError, SyntaxError } from './errors.js';
 import { Lexer, Token } from './lexer.js';
 import {
+  BooleanType,
+  ComplexType,
+  NaturalType,
+  RealType,
+  StringType,
+  UndefinedType,
+} from './types.js';
+import {
   BooleanValue,
   ComplexValue,
   NaturalValue,
@@ -83,31 +91,37 @@ export class Parser {
         this._lexer.skip('bracket-right');
         return inner;
       }
-      case 'complex':
-        return new LiteralNode(new ComplexValue(0, parseFloat(this._lexer.step())));
+      case 'complex': {
+        const imaginaryValue = parseFloat(this._lexer.step());
+        return new LiteralNode(new ComplexValue(0, imaginaryValue), ComplexType.INSTANCE);
+      }
       case 'identifier':
         return new VariableNode(this._lexer.step());
       case 'keyword:false':
         this._lexer.next();
-        return new LiteralNode(BooleanValue.FALSE);
+        return new LiteralNode(BooleanValue.FALSE, BooleanType.INSTANCE);
       case 'keyword:fn':
         return this._parseLambda(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
       case 'keyword:true':
         this._lexer.next();
-        return new LiteralNode(BooleanValue.TRUE);
+        return new LiteralNode(BooleanValue.TRUE, BooleanType.INSTANCE);
       case 'keyword:undefined':
         this._lexer.next();
-        return new LiteralNode(UndefinedValue.INSTANCE);
-      case 'natural':
-        return new LiteralNode(new NaturalValue(parseInt(this._lexer.step(), 10)));
-      case 'real':
-        return new LiteralNode(new RealValue(parseFloat(this._lexer.step())));
+        return new LiteralNode(UndefinedValue.INSTANCE, UndefinedType.INSTANCE);
+      case 'natural': {
+        const naturalValue = parseInt(this._lexer.step(), 10);
+        return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
+      }
+      case 'real': {
+        const realValue = parseFloat(this._lexer.step());
+        return new LiteralNode(new RealValue(realValue), RealType.INSTANCE);
+      }
       case 'string': {
         const label = this._lexer.step();
         const stringValue = unescapeString(label.slice(1, -1));
-        return new LiteralNode(new StringValue(stringValue));
+        return new LiteralNode(new StringValue(stringValue), StringType.INSTANCE);
       }
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);

@@ -1,4 +1,5 @@
 import { RuntimeError } from './errors.js';
+import { IotaType } from './types.js';
 import { Closure, ValueContext, ValueInterface } from './values.js';
 
 export interface NodeInterface {
@@ -23,7 +24,10 @@ export interface NodeInterface {
 const EMPTY_FREE_VAR_SET = new Set<string>();
 
 export class LiteralNode implements NodeInterface {
-  public constructor(public readonly value: ValueInterface) {}
+  public constructor(
+    public readonly value: ValueInterface,
+    public readonly type: IotaType,
+  ) {}
 
   public getFreeVariables(): Set<string> {
     return EMPTY_FREE_VAR_SET;
