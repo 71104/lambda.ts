@@ -54,8 +54,7 @@ export class ApplicationNode implements NodeInterface {
   public evaluate(context: ValueContext): ValueInterface {
     const left = this.left.evaluate(context);
     if (left instanceof Closure) {
-      const right = this.right.evaluate(context);
-      return left.body.evaluate(context.push(left.name, right));
+      return left.apply(this.right.evaluate(context));
     } else {
       throw new RuntimeError('cannot apply a non-closure value');
     }

@@ -1,4 +1,4 @@
-import { LambdaNode, LiteralNode, NodeInterface, VariableNode } from './ast.js';
+import { ApplicationNode, LambdaNode, LiteralNode, NodeInterface, VariableNode } from './ast.js';
 import { SyntaxError } from './errors.js';
 import { Lexer, Token } from './lexer.js';
 import {
@@ -56,7 +56,7 @@ export class Parser {
         return inner;
       }
       case 'complex':
-        return new LiteralNode(new ComplexValue(0, parseFloat(this._lexer.label)));
+        return new LiteralNode(new ComplexValue(0, parseFloat(this._lexer.step())));
       case 'identifier':
         return new VariableNode(this._lexer.step());
       case 'keyword:false':
@@ -71,9 +71,9 @@ export class Parser {
         this._lexer.next();
         return new LiteralNode(UndefinedValue.INSTANCE);
       case 'natural':
-        return new LiteralNode(new NaturalValue(parseInt(this._lexer.label, 10)));
+        return new LiteralNode(new NaturalValue(parseInt(this._lexer.step(), 10)));
       case 'real':
-        return new LiteralNode(new RealValue(parseFloat(this._lexer.label)));
+        return new LiteralNode(new RealValue(parseFloat(this._lexer.step())));
       case 'string': {
         const label = this._lexer.step();
         const stringValue = unescapeString(label.slice(1, -1));
@@ -84,8 +84,16 @@ export class Parser {
     }
   }
 
+  private _parse1(terminators: Token[]): NodeInterface {
+    let node = this._parse0(terminators);
+    while (!terminators.includes(this._lexer.token)) {
+      node = new ApplicationNode(node, this._parse0(terminators));
+    }
+    return node;
+  }
+
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse0(terminators);
+    return this._parse1(terminators);
   }
 
   public parse(): NodeInterface {

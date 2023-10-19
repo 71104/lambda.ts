@@ -117,4 +117,8 @@ export class Closure implements ValueInterface {
   public toString(): string {
     return `[Function]`;
   }
+
+  public apply(argument: ValueInterface): ValueInterface {
+    return this.body.evaluate(this.context.push(this.name, argument));
+  }
 }
