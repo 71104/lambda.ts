@@ -72,6 +72,27 @@ export class RealValue implements ValueInterface {
   }
 }
 
+export class RationalValue implements ValueInterface {
+  public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
+  public static readonly ZERO = new RationalValue(0, 1);
+
+  public readonly numerator: number;
+  public readonly denominator: number;
+
+  public constructor(numerator: number, denominator: number) {
+    this.numerator = ~~numerator;
+    this.denominator = ~~denominator;
+  }
+
+  public toString(): string {
+    if (Math.sign(this.numerator) != Math.sign(this.denominator)) {
+      return `-${Math.abs(this.numerator)}/${Math.abs(this.denominator)}`;
+    } else {
+      return `${Math.abs(this.numerator)}/${Math.abs(this.denominator)}`;
+    }
+  }
+}
+
 export class IntegerValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly ZERO = new IntegerValue(0);

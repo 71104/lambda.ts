@@ -282,6 +282,37 @@ export class RealType extends IotaType {
   }
 }
 
+export class RationalType extends IotaType {
+  public static readonly INSTANCE = new RationalType();
+
+  private constructor() {
+    super();
+  }
+
+  public toString(): string {
+    return 'rational';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (
+      other instanceof UndefinedType ||
+      other instanceof ComplexType ||
+      other instanceof RealType ||
+      other instanceof RationalType
+    ) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
+}
+
 export class IntegerType extends IotaType {
   public static readonly INSTANCE = new IntegerType();
 
@@ -298,6 +329,7 @@ export class IntegerType extends IotaType {
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
       other instanceof RealType ||
+      other instanceof RationalType ||
       other instanceof IntegerType
     ) {
       return substitution;
@@ -329,6 +361,7 @@ export class NaturalType extends IotaType {
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
       other instanceof RealType ||
+      other instanceof RationalType ||
       other instanceof IntegerType ||
       other instanceof NaturalType
     ) {
