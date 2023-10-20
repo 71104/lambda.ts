@@ -8,8 +8,8 @@ if (process.stdin.isTTY) {
   replStart({
     eval: (input, _context, _filename, callback) => {
       try {
-        const value = lambda(input);
-        callback(null, value.toString());
+        const [type, value] = lambda(input);
+        callback(null, `${value.toString()}: ${type.toString()}`);
       } catch (e) {
         callback(e as Error, null);
       }

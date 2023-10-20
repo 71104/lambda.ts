@@ -1,6 +1,23 @@
-import { RuntimeError } from './errors.js';
-import { IotaType, TauType, TypeScheme } from './types.js';
+import { RuntimeError, TypeError } from './errors.js';
+import {
+  EMPTY_SUBSTITUTION,
+  IotaType,
+  LambdaType,
+  Substitution,
+  TauType,
+  TypeContext,
+  TypeScheme,
+  UnknownType,
+  VariableType,
+} from './types.js';
 import { Closure, ValueContext, ValueInterface } from './values.js';
+
+export class TypeResults {
+  public constructor(
+    public readonly substitution: Substitution,
+    public readonly type: TauType,
+  ) {}
+}
 
 export interface NodeInterface {
   /**
@@ -8,6 +25,16 @@ export interface NodeInterface {
    * declared elsewhere.
    */
   getFreeVariables(): Set<string>;
+
+  /**
+   * Type-checks a Lambda program and returns its type.
+   *
+   * If the program uses any Lambda operators (whether they're unary or binary) this algorithm will
+   * modify the AST by storing the selected overload in each respective node.
+   *
+   * @param context The type context, mapping variable names to Lambda types.
+   */
+  getType(context: TypeContext): TypeResults;
 
   /**
    * Evaluates a Lambda program and returns the result.
@@ -31,6 +58,10 @@ export class LiteralNode implements NodeInterface {
     return new Set<string>();
   }
 
+  public getType(): TypeResults {
+    return new TypeResults(EMPTY_SUBSTITUTION, this.type);
+  }
+
   public evaluate(): ValueInterface {
     return this.value;
   }
@@ -41,6 +72,19 @@ export class VariableNode implements NodeInterface {
 
   public getFreeVariables(): Set<string> {
     return new Set<string>(this.name);
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    if (!context.has(this.name)) {
+      return new TypeResults(EMPTY_SUBSTITUTION, UnknownType.INSTANCE);
+    }
+    const scheme = context.top(this.name);
+    const hash = Object.create(null);
+    scheme.names.forEach(name => (hash[name] = VariableType.getNew()));
+    return new TypeResults(
+      EMPTY_SUBSTITUTION,
+      scheme.type.substitute(Substitution.create<TauType>(hash)),
+    );
   }
 
   public evaluate(context: ValueContext): ValueInterface {
@@ -65,6 +109,14 @@ export class LambdaNode implements NodeInterface {
     return variables;
   }
 
+  public getType(context: TypeContext): TypeResults {
+    const parameter = this.type || VariableType.getNew();
+    const { substitution, type } = this.body.getType(
+      context.push(this.name, new TypeScheme([], parameter)),
+    );
+    return new TypeResults(substitution, new LambdaType(parameter, type).substitute(substitution));
+  }
+
   public evaluate(context: ValueContext): Closure {
     return new Closure(context, this.name, this.body);
   }
@@ -78,6 +130,23 @@ export class ApplicationNode implements NodeInterface {
 
   public getFreeVariables(): Set<string> {
     return new Set<string>([...this.left.getFreeVariables(), ...this.right.getFreeVariables()]);
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    const left = this.left.getType(context);
+    const right = this.right.getType(
+      context.map((_, scheme) => scheme.substitute(left.substitution)),
+    );
+    const lambda = new LambdaType(right.type, VariableType.getNew());
+    const substitution = left.type.leq(lambda, right.substitution);
+    if (substitution) {
+      return new TypeResults(
+        left.substitution.add(right.substitution).add(substitution),
+        lambda.right,
+      );
+    } else {
+      throw new TypeError(`cannot unify ${left.type} and ${lambda}`);
+    }
   }
 
   public evaluate(context: ValueContext): ValueInterface {
@@ -102,6 +171,14 @@ export class LetNode implements NodeInterface {
     const variables = this.rest.getFreeVariables();
     variables.delete(this.name);
     return variables;
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    const expression = this.expression.getType(context);
+    // TODO: check expression type against type constraints.
+    context = context.map((_, type) => type.substitute(expression.substitution));
+    const rest = this.rest.getType(context.push(this.name, expression.type.close(context)));
+    return new TypeResults(expression.substitution.add(rest.substitution), rest.type);
   }
 
   public evaluate(context: ValueContext): ValueInterface {

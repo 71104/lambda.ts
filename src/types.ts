@@ -5,7 +5,20 @@ export abstract class TauType {
 
   public abstract getFreeVariables(): Set<string>;
 
+  public abstract substitute(substitution: Substitution): TauType;
+
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
+
+  public close(context?: TypeContext): TypeScheme {
+    if (context) {
+      return new TypeScheme(
+        [...this.getFreeVariables()].filter(name => !context.has(name)),
+        this,
+      );
+    } else {
+      return new TypeScheme([...this.getFreeVariables()], this);
+    }
+  }
 }
 
 export type Substitution = Context<TauType>;
@@ -15,6 +28,10 @@ export const EMPTY_SUBSTITUTION = Substitution.create<TauType>();
 export abstract class IotaType extends TauType {
   public getFreeVariables(): Set<string> {
     return new Set<string>();
+  }
+
+  public substitute(): IotaType {
+    return this;
   }
 }
 
@@ -30,6 +47,10 @@ export class TypeScheme {
     } else {
       return this.type.toString();
     }
+  }
+
+  public substitute(substitution: Substitution): TypeScheme {
+    return new TypeScheme(this.names, this.type.substitute(substitution.remove(...this.names)));
   }
 }
 
@@ -58,6 +79,14 @@ export class VariableType extends TauType {
 
   public getFreeVariables(): Set<string> {
     return new Set<string>([this.name]);
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    if (substitution.has(this.name)) {
+      return substitution.top(this.name).substitute(substitution);
+    } else {
+      return this;
+    }
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
@@ -306,6 +335,10 @@ export class LambdaType extends TauType {
 
   public getFreeVariables(): Set<string> {
     return new Set<string>([...this.left.getFreeVariables(), ...this.right.getFreeVariables()]);
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    return new LambdaType(this.left.substitute(substitution), this.right.substitute(substitution));
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
