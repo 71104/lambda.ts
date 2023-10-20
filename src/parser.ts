@@ -14,6 +14,7 @@ import {
   IntegerType,
   LambdaType,
   NaturalType,
+  NullType,
   RealType,
   StringType,
   TauType,
@@ -25,6 +26,7 @@ import {
   BooleanValue,
   ComplexValue,
   NaturalValue,
+  NullValue,
   RealValue,
   StringValue,
   UndefinedValue,
@@ -83,6 +85,9 @@ export class Parser {
       case 'keyword:string':
         this._lexer.next();
         return StringType.INSTANCE;
+      case 'keyword:undefined':
+        this._lexer.next();
+        return UndefinedType.INSTANCE;
       default:
         throw new SyntaxError(`unexpected token: '${this._lexer.token}'`);
     }
@@ -179,6 +184,9 @@ export class Parser {
         return this._parseLambda(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
+      case 'keyword:null':
+        this._lexer.next();
+        return new LiteralNode(NullValue.INSTANCE, NullType.INSTANCE);
       case 'keyword:true':
         this._lexer.next();
         return new LiteralNode(BooleanValue.TRUE, BooleanType.INSTANCE);

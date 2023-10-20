@@ -16,6 +16,7 @@ export type Token =
   | 'keyword:integer'
   | 'keyword:let'
   | 'keyword:natural'
+  | 'keyword:null'
   | 'keyword:real'
   | 'keyword:scheme'
   | 'keyword:string'
@@ -38,6 +39,7 @@ export class Lexer {
     ['keyword:string', /^string\b/],
     ['keyword:scheme', /^scheme\b/],
     ['keyword:real', /^real\b/],
+    ['keyword:null', /^null\b/],
     ['keyword:natural', /^natural\b/],
     ['keyword:let', /^let\b/],
     ['keyword:integer', /^integer\b/],

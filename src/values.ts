@@ -21,6 +21,16 @@ export class UndefinedValue implements ValueInterface {
   }
 }
 
+export class NullValue implements ValueInterface {
+  private constructor() {}
+
+  public static readonly INSTANCE: UndefinedValue = new NullValue();
+
+  public toString(): string {
+    return 'null';
+  }
+}
+
 export class BooleanValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly FALSE = new BooleanValue(false);

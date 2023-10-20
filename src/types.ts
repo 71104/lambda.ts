@@ -150,6 +150,32 @@ export class UnknownType extends IotaType {
   }
 }
 
+export class NullType extends IotaType {
+  public static readonly INSTANCE = new NullType();
+
+  private constructor() {
+    super();
+  }
+
+  public toString(): string {
+    return 'null';
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType || other instanceof NullType) {
+      return substitution;
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
+}
+
 export class BooleanType extends IotaType {
   public static readonly INSTANCE = new BooleanType();
 
