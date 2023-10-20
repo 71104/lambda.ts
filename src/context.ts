@@ -88,6 +88,21 @@ export class Context<Element extends ContextualInterface> {
     return false;
   }
 
+  public reduce<Accumulator>(
+    fn: (accumulator: Accumulator, name: string, element: Element) => Accumulator | null,
+    initialValue: Accumulator,
+  ): Accumulator | null {
+    let value: Accumulator | null = initialValue;
+    for (const name in this._frame) {
+      if (value) {
+        value = fn(value, name, this._frame[name]);
+      } else {
+        return value;
+      }
+    }
+    return value;
+  }
+
   public push(name: string, element: Element): Context<Element> {
     const child = new Context<Element>(this._frame);
     child._frame[name] = element;

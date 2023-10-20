@@ -75,16 +75,11 @@ export class VariableNode implements NodeInterface {
   }
 
   public getType(context: TypeContext): TypeResults {
-    if (!context.has(this.name)) {
+    if (context.has(this.name)) {
+      return new TypeResults(EMPTY_SUBSTITUTION, context.top(this.name).instantiate());
+    } else {
       return new TypeResults(EMPTY_SUBSTITUTION, UnknownType.INSTANCE);
     }
-    const scheme = context.top(this.name);
-    const hash = Object.create(null);
-    scheme.names.forEach(name => (hash[name] = VariableType.getNew()));
-    return new TypeResults(
-      EMPTY_SUBSTITUTION,
-      scheme.type.substitute(Substitution.create<TauType>(hash)),
-    );
   }
 
   public evaluate(context: ValueContext): ValueInterface {

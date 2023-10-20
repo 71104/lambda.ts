@@ -31,6 +31,16 @@ export class NullValue implements ValueInterface {
   }
 }
 
+export class ObjectValue implements ValueInterface {
+  public static readonly EMPTY = new ObjectValue(EMPTY_VALUE_CONTEXT);
+
+  public constructor(public readonly fields: ValueContext) {}
+
+  public toString(): string {
+    return 'object';
+  }
+}
+
 export class BooleanValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly FALSE = new BooleanValue(false);
