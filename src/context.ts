@@ -26,7 +26,7 @@ export class Context<Element extends ContextualInterface> {
   public toString(): string {
     const strings: string[] = [];
     for (const name in this._frame) {
-      strings.push(this._frame[name].toString());
+      strings.push(`${name}: ${this._frame[name].toString()}`);
     }
     return '{' + strings.join(', ') + '}';
   }

@@ -142,7 +142,7 @@ export class ApplicationNode implements NodeInterface {
     if (substitution) {
       return new TypeResults(
         left.substitution.add(right.substitution).add(substitution),
-        lambda.right,
+        lambda.right.substitute(substitution),
       );
     } else {
       throw new TypeError(`cannot unify ${left.type} and ${lambda}`);
