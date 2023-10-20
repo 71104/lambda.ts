@@ -10,7 +10,7 @@ import {
   UnknownType,
   VariableType,
 } from './types.js';
-import { Closure, ValueContext, ValueInterface } from './values.js';
+import { Closure, EMPTY_VALUE_CONTEXT, ValueContext, ValueInterface } from './values.js';
 
 export class TypeResults {
   public constructor(
@@ -183,5 +183,69 @@ export class LetNode implements NodeInterface {
 
   public evaluate(context: ValueContext): ValueInterface {
     return this.rest.evaluate(context.push(this.name, this.expression.evaluate(context)));
+  }
+}
+
+export class FixNode implements NodeInterface {
+  private static readonly _VAR = new VariableType('#');
+  private static readonly _TYPE = new LambdaType(
+    new LambdaType(FixNode._VAR, FixNode._VAR),
+    FixNode._VAR,
+  );
+  private static readonly _TYPE_RESULTS = {
+    substitution: EMPTY_SUBSTITUTION,
+    type: FixNode._TYPE,
+  };
+  private static readonly _VALUE = new Closure(
+    EMPTY_VALUE_CONTEXT,
+    'f',
+    new ApplicationNode(
+      new LambdaNode(
+        'x',
+        null,
+        new ApplicationNode(
+          new VariableNode('f'),
+          new LambdaNode(
+            'v',
+            null,
+            new ApplicationNode(
+              new ApplicationNode(new VariableNode('x'), new VariableNode('x')),
+              new VariableNode('v'),
+            ),
+          ),
+        ),
+      ),
+      new LambdaNode(
+        'x',
+        null,
+        new ApplicationNode(
+          new VariableNode('f'),
+          new LambdaNode(
+            'v',
+            null,
+            new ApplicationNode(
+              new ApplicationNode(new VariableNode('x'), new VariableNode('x')),
+              new VariableNode('v'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  public static readonly INSTANCE = new FixNode();
+
+  private constructor() {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>();
+  }
+
+  public getType(): TypeResults {
+    return FixNode._TYPE_RESULTS;
+  }
+
+  public evaluate(): Closure {
+    return FixNode._VALUE;
   }
 }

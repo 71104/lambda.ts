@@ -11,6 +11,7 @@ export type Token =
   | 'keyword:boolean'
   | 'keyword:complex'
   | 'keyword:false'
+  | 'keyword:fix'
   | 'keyword:fn'
   | 'keyword:in'
   | 'keyword:integer'
@@ -45,6 +46,7 @@ export class Lexer {
     ['keyword:integer', /^integer\b/],
     ['keyword:in', /^in\b/],
     ['keyword:fn', /^fn\b/],
+    ['keyword:fix', /^fix\b/],
     ['keyword:false', /^false\b/],
     ['keyword:complex', /^complex\b/],
     ['keyword:boolean', /^boolean\b/],

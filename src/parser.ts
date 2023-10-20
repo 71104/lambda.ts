@@ -1,5 +1,6 @@
 import {
   ApplicationNode,
+  FixNode,
   LambdaNode,
   LetNode,
   LiteralNode,
@@ -180,6 +181,9 @@ export class Parser {
       case 'keyword:false':
         this._lexer.next();
         return new LiteralNode(BooleanValue.FALSE, BooleanType.INSTANCE);
+      case 'keyword:fix':
+        this._lexer.next();
+        return FixNode.INSTANCE;
       case 'keyword:fn':
         return this._parseLambda(terminators);
       case 'keyword:let':
