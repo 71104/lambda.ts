@@ -187,15 +187,6 @@ export class LetNode implements NodeInterface {
 }
 
 export class FixNode implements NodeInterface {
-  private static readonly _VAR = new VariableType('#');
-  private static readonly _TYPE = new LambdaType(
-    new LambdaType(FixNode._VAR, FixNode._VAR),
-    FixNode._VAR,
-  );
-  private static readonly _TYPE_RESULTS = {
-    substitution: EMPTY_SUBSTITUTION,
-    type: FixNode._TYPE,
-  };
   private static readonly _VALUE = new Closure(
     EMPTY_VALUE_CONTEXT,
     'f',
@@ -242,7 +233,11 @@ export class FixNode implements NodeInterface {
   }
 
   public getType(): TypeResults {
-    return FixNode._TYPE_RESULTS;
+    const variable = VariableType.getNew();
+    return new TypeResults(
+      EMPTY_SUBSTITUTION,
+      new LambdaType(new LambdaType(variable, variable), variable),
+    );
   }
 
   public evaluate(): Closure {
