@@ -7,6 +7,30 @@ export abstract class TauType {
 
   public abstract substitute(substitution: Substitution): TauType;
 
+  protected static _substituteIfNoCycles(
+    substitution: Substitution,
+    name: string,
+    type: TauType,
+  ): Substitution | null {
+    substitution = substitution.push(name, type);
+    const visited = new Set<string>();
+    const visiting = [...type.getFreeVariables()];
+    while (visiting.length > 0) {
+      const current = visiting.pop()!;
+      if (current === name) {
+        return null;
+      }
+      if (!visited.has(current)) {
+        visited.add(current);
+        if (substitution.has(current)) {
+          const names = substitution.top(current).getFreeVariables();
+          visiting.push(...names);
+        }
+      }
+    }
+    return substitution;
+  }
+
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 
   public close(context?: TypeContext): TypeScheme {
@@ -98,12 +122,12 @@ export class VariableType extends TauType {
       } else if (substitution.has(other.name)) {
         return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
-        return substitution.push(other.name, this);
+        return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
     } else if (other.getFreeVariables().has(this.name)) {
       return null;
     } else {
-      return substitution.push(this.name, other);
+      return TauType._substituteIfNoCycles(substitution, this.name, other);
     }
   }
 }
@@ -381,7 +405,7 @@ export class LambdaType extends TauType {
       if (substitution.has(other.name)) {
         return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
-        return substitution.push(other.name, this);
+        return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
     } else {
       return null;
