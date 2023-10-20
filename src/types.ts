@@ -124,8 +124,6 @@ export class VariableType extends TauType {
       } else {
         return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
-    } else if (other.getFreeVariables().has(this.name)) {
-      return null;
     } else {
       return TauType._substituteIfNoCycles(substitution, this.name, other);
     }
