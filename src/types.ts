@@ -91,12 +91,12 @@ export class VariableType extends TauType {
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
-      return substitution.top(this.name).leq(other, substitution);
+      return substitution.top(this.name).substitute(substitution).leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (this.name === other.name) {
         return substitution;
       } else if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -124,7 +124,7 @@ export class UndefinedType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -166,7 +166,7 @@ export class NullType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -192,7 +192,7 @@ export class BooleanType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -218,7 +218,7 @@ export class ComplexType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -248,7 +248,7 @@ export class RealType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -279,7 +279,7 @@ export class IntegerType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -311,7 +311,7 @@ export class NaturalType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -337,7 +337,7 @@ export class StringType extends IotaType {
       return substitution;
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
@@ -379,7 +379,7 @@ export class LambdaType extends TauType {
       }
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
-        return this.leq(substitution.top(other.name), substitution);
+        return this.leq(substitution.top(other.name).substitute(substitution), substitution);
       } else {
         return substitution.push(other.name, this);
       }
