@@ -181,8 +181,16 @@ export class UnknownType extends IotaType {
     return 'unknown';
   }
 
-  public leq(_other: TauType, substitution: Substitution): Substitution | null {
-    return substitution;
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(other.substitute(substitution), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      return substitution;
+    }
   }
 }
 
