@@ -1,5 +1,5 @@
 {
-    "editorconfig": true,
-    "arrowParens": "avoid",
-    "singleQuote": true
+  "editorconfig": true,
+  "arrowParens": "avoid",
+  "singleQuote": true
 }

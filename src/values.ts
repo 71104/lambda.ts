@@ -1,33 +1,71 @@
-import { NodeInterface } from './ast.js';
+import { LambdaNode, NativeNode, NodeInterface } from './ast.js';
 import { Context } from './context.js';
 import { RuntimeError } from './errors.js';
 
 export interface ValueInterface {
   toString(): string;
+
+  marshal(): unknown;
 }
 
 export type ValueContext = Context<ValueInterface>;
 export const ValueContext = Context<ValueInterface>;
-
 export const EMPTY_VALUE_CONTEXT = ValueContext.create<ValueInterface>();
+
+export function unmarshal(value: unknown): ValueInterface {
+  switch (typeof value) {
+    case 'undefined':
+      return UndefinedValue.INSTANCE;
+    case 'boolean':
+      if (value) {
+        return BooleanValue.TRUE;
+      } else {
+        return BooleanValue.FALSE;
+      }
+    case 'number':
+      return new RealValue(value);
+    case 'string':
+      return new StringValue(value);
+    case 'object':
+      if (!value) {
+        return NullValue.INSTANCE;
+      } else if (value instanceof ComplexValue || value instanceof RationalValue) {
+        return value;
+      } else {
+        return new NativeObjectValue(value);
+      }
+    case 'function':
+      return Closure.wrap(value);
+    default:
+      throw new RuntimeError('unsupported value');
+  }
+}
 
 export class UndefinedValue implements ValueInterface {
   private constructor() {}
 
-  public static readonly INSTANCE: UndefinedValue = new UndefinedValue();
+  public static readonly INSTANCE = new UndefinedValue();
 
   public toString(): string {
     return 'undefined';
+  }
+
+  public marshal(): undefined {
+    return void 0;
   }
 }
 
 export class NullValue implements ValueInterface {
   private constructor() {}
 
-  public static readonly INSTANCE: UndefinedValue = new NullValue();
+  public static readonly INSTANCE = new NullValue();
 
   public toString(): string {
     return 'null';
+  }
+
+  public marshal(): null {
+    return null;
   }
 }
 
@@ -39,6 +77,24 @@ export class ObjectValue implements ValueInterface {
   public toString(): string {
     return 'object';
   }
+
+  public marshal(): object {
+    const result: { [name: string]: unknown } = Object.create(null);
+    this.fields.forEach((name, value) => (result[name] = value.marshal()));
+    return result;
+  }
+}
+
+export class NativeObjectValue implements ValueInterface {
+  public constructor(public readonly value: object) {}
+
+  public toString(): string {
+    return this.value.toString();
+  }
+
+  public marshal(): object {
+    return this.value;
+  }
 }
 
 export class BooleanValue implements ValueInterface {
@@ -46,10 +102,18 @@ export class BooleanValue implements ValueInterface {
   public static readonly FALSE = new BooleanValue(false);
   public static readonly TRUE = new BooleanValue(true);
 
-  public constructor(public readonly value: boolean) {}
+  public readonly value: boolean;
+
+  public constructor(value: boolean) {
+    this.value = !!value;
+  }
 
   public toString(): string {
     return this.value ? 'true' : 'false';
+  }
+
+  public marshal(): boolean {
+    return this.value;
   }
 }
 
@@ -57,10 +121,13 @@ export class ComplexValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly ZERO = new ComplexValue(0, 0);
 
-  public constructor(
-    public readonly real: number,
-    public readonly imaginary: number,
-  ) {}
+  public readonly real: number;
+  public readonly imaginary: number;
+
+  public constructor(real: number, imaginary: number) {
+    this.real = +real;
+    this.imaginary = +imaginary;
+  }
 
   public toString(): string {
     if (this.imaginary < 0) {
@@ -69,16 +136,28 @@ export class ComplexValue implements ValueInterface {
       return `${this.real}+${this.imaginary}i`;
     }
   }
+
+  public marshal(): ComplexValue {
+    return this;
+  }
 }
 
 export class RealValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly ZERO = new RealValue(0);
 
-  public constructor(public readonly value: number) {}
+  public readonly value: number;
+
+  public constructor(value: number) {
+    this.value = +value;
+  }
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public marshal(): number {
+    return this.value;
   }
 }
 
@@ -101,6 +180,10 @@ export class RationalValue implements ValueInterface {
       return `${Math.abs(this.numerator)}/${Math.abs(this.denominator)}`;
     }
   }
+
+  public marshal(): RationalValue {
+    return this;
+  }
 }
 
 export class IntegerValue implements ValueInterface {
@@ -115,6 +198,10 @@ export class IntegerValue implements ValueInterface {
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public marshal(): number {
+    return this.value;
   }
 }
 
@@ -135,16 +222,28 @@ export class NaturalValue implements ValueInterface {
   public toString(): string {
     return '' + this.value;
   }
+
+  public marshal(): number {
+    return this.value;
+  }
 }
 
 export class StringValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly EMPTY = new StringValue('');
 
-  public constructor(public readonly value: string) {}
+  public readonly value: string;
+
+  public constructor(value: string) {
+    this.value = '' + value;
+  }
 
   public toString(): string {
     return JSON.stringify(this.value);
+  }
+
+  public marshal(): string {
+    return this.value;
   }
 }
 
@@ -156,10 +255,41 @@ export class Closure implements ValueInterface {
   ) {}
 
   public toString(): string {
-    return `[Function]`;
+    return `closure`;
+  }
+
+  public _getArgNames(): string[] {
+    const names = [this.name];
+    for (let node = this.body; node instanceof LambdaNode; node = node.body) {
+      names.push(node.name);
+    }
+    return names;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  public marshal(): Function {
+    const node = this.body;
+    const context = this.context;
+    const argNames = this._getArgNames();
+    return function (...args: unknown[]): unknown {
+      const hash: { [name: string]: ValueInterface } = Object.create(null);
+      // @ts-expect-error
+      hash.this = unmarshal(this);
+      argNames.forEach((name, index) => (hash[name] = unmarshal(args[index])));
+      return node.evaluate(context.pushAll(hash)).marshal();
+    };
   }
 
   public apply(argument: ValueInterface): ValueInterface {
     return this.body.evaluate(this.context.push(this.name, argument));
+  }
+
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  public static wrap(fn: Function): Closure {
+    return new Closure(
+      EMPTY_VALUE_CONTEXT,
+      'this',
+      new LambdaNode('arguments', null, new NativeNode(fn)),
+    );
   }
 }

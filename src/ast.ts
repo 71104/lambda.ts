@@ -1,4 +1,4 @@
-import { RuntimeError, TypeError } from './errors.js';
+import { InternalError, RuntimeError, TypeError } from './errors.js';
 import {
   EMPTY_SUBSTITUTION,
   IotaType,
@@ -10,7 +10,7 @@ import {
   UnknownType,
   VariableType,
 } from './types.js';
-import { Closure, EMPTY_VALUE_CONTEXT, ValueContext, ValueInterface } from './values.js';
+import { Closure, EMPTY_VALUE_CONTEXT, ValueContext, ValueInterface, unmarshal } from './values.js';
 
 export class TypeResults {
   public constructor(
@@ -85,6 +85,14 @@ export class VariableNode implements NodeInterface {
   public evaluate(context: ValueContext): ValueInterface {
     if (context.has(this.name)) {
       return context.top(this.name);
+    }
+    const global = globalThis as { [name: string]: unknown };
+    if (this.name in global) {
+      try {
+        return unmarshal(global[this.name]);
+      } catch {
+        throw new RuntimeError(`unknown variable ${JSON.stringify(this.name)}`);
+      }
     } else {
       throw new RuntimeError(`unknown variable ${JSON.stringify(this.name)}`);
     }
@@ -114,6 +122,30 @@ export class LambdaNode implements NodeInterface {
 
   public evaluate(context: ValueContext): Closure {
     return new Closure(context, this.name, this.body);
+  }
+}
+
+export class NativeNode implements NodeInterface {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  public constructor(public readonly fn: Function) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>(['this', 'arguments']);
+  }
+
+  public getType(): TypeResults {
+    return new TypeResults(EMPTY_SUBSTITUTION, UnknownType.INSTANCE);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    if (!context.has('this') || !context.has('arguments')) {
+      throw new InternalError(
+        'native functions must be invoked with `this` and the list of arguments',
+      );
+    }
+    return unmarshal(
+      this.fn.apply(context.top('this').marshal(), context.top('arguments').marshal()),
+    );
   }
 }
 

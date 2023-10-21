@@ -1,4 +1,4 @@
-export class UnimplementedError extends Error {}
+export class NotImplementedError extends Error {}
 
 export class InternalError extends Error {
   public constructor(message: string) {

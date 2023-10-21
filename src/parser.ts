@@ -114,8 +114,7 @@ export class Parser {
       do {
         this._lexer.next();
         names.push(this._lexer.expect('identifier'));
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
+        // @ts-expect-error
       } while (this._lexer.token === 'comma');
       this._lexer.skip('fat-arrow');
       return new TypeScheme(names, this._parseType());
