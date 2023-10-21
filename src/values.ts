@@ -1,9 +1,13 @@
-import { LambdaNode, NativeNode, NodeInterface } from './ast.js';
+import { LambdaNode, NativeNode, NodeInterface, SemiNativeNode } from './ast.js';
 import { Context } from './context.js';
-import { RuntimeError } from './errors.js';
+import { InternalError, RuntimeError } from './errors.js';
 
 export interface ValueInterface {
   toString(): string;
+
+  bind(value: ValueInterface): ValueInterface;
+
+  getField(name: string): ValueInterface;
 
   marshal(): unknown;
 }
@@ -35,7 +39,7 @@ export function unmarshal(value: unknown): ValueInterface {
         return new NativeObjectValue(value);
       }
     case 'function':
-      return Closure.wrap(value);
+      return Closure.unmarshal(value);
     default:
       throw new RuntimeError('unsupported value');
   }
@@ -48,6 +52,14 @@ export class UndefinedValue implements ValueInterface {
 
   public toString(): string {
     return 'undefined';
+  }
+
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of undefined`);
   }
 
   public marshal(): undefined {
@@ -64,6 +76,14 @@ export class NullValue implements ValueInterface {
     return 'null';
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of null`);
+  }
+
   public marshal(): null {
     return null;
   }
@@ -78,6 +98,18 @@ export class ObjectValue implements ValueInterface {
     return 'object';
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (this.fields.has(name)) {
+      return this.fields.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`object doesn't have a field named ${JSON.stringify(name)}`);
+    }
+  }
+
   public marshal(): object {
     const result: { [name: string]: unknown } = Object.create(null);
     this.fields.forEach((name, value) => (result[name] = value.marshal()));
@@ -90,6 +122,14 @@ export class NativeObjectValue implements ValueInterface {
 
   public toString(): string {
     return this.value.toString();
+  }
+
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    return unmarshal((this.value as { [name: string]: unknown })[name]).bind(this);
   }
 
   public marshal(): object {
@@ -110,6 +150,18 @@ export class BooleanValue implements ValueInterface {
 
   public toString(): string {
     return this.value ? 'true' : 'false';
+  }
+
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (BooleanValue.PROTOTYPE.has(name)) {
+      return BooleanValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of boolean`);
+    }
   }
 
   public marshal(): boolean {
@@ -137,6 +189,18 @@ export class ComplexValue implements ValueInterface {
     }
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (ComplexValue.PROTOTYPE.has(name)) {
+      return ComplexValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of complex`);
+    }
+  }
+
   public marshal(): ComplexValue {
     return this;
   }
@@ -154,6 +218,18 @@ export class RealValue implements ValueInterface {
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (RealValue.PROTOTYPE.has(name)) {
+      return RealValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of real`);
+    }
   }
 
   public marshal(): number {
@@ -181,6 +257,18 @@ export class RationalValue implements ValueInterface {
     }
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (RationalValue.PROTOTYPE.has(name)) {
+      return RationalValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of rational`);
+    }
+  }
+
   public marshal(): RationalValue {
     return this;
   }
@@ -198,6 +286,18 @@ export class IntegerValue implements ValueInterface {
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (IntegerValue.PROTOTYPE.has(name)) {
+      return IntegerValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of integer`);
+    }
   }
 
   public marshal(): number {
@@ -223,6 +323,18 @@ export class NaturalValue implements ValueInterface {
     return '' + this.value;
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (NaturalValue.PROTOTYPE.has(name)) {
+      return NaturalValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of natural`);
+    }
+  }
+
   public marshal(): number {
     return this.value;
   }
@@ -242,6 +354,18 @@ export class StringValue implements ValueInterface {
     return JSON.stringify(this.value);
   }
 
+  public bind(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (StringValue.PROTOTYPE.has(name)) {
+      return StringValue.PROTOTYPE.top(name).bind(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of string`);
+    }
+  }
+
   public marshal(): string {
     return this.value;
   }
@@ -256,6 +380,14 @@ export class Closure implements ValueInterface {
 
   public toString(): string {
     return `closure`;
+  }
+
+  public bind(value: ValueInterface): ValueInterface {
+    return this.apply(value);
+  }
+
+  public getField(name: string): ValueInterface {
+    throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of closure`);
   }
 
   public _getArgNames(): string[] {
@@ -285,11 +417,23 @@ export class Closure implements ValueInterface {
   }
 
   // eslint-disable-next-line @typescript-eslint/ban-types
-  public static wrap(fn: Function): Closure {
+  public static unmarshal(fn: Function): Closure {
     return new Closure(
       EMPTY_VALUE_CONTEXT,
       'this',
       new LambdaNode('arguments', null, new NativeNode(fn)),
     );
+  }
+
+  public static wrap(fn: (...args: ValueInterface[]) => ValueInterface): Closure {
+    const arity = fn.length;
+    if (arity < 1) {
+      throw new InternalError('cannot wrap a no-arg function');
+    }
+    let node = new LambdaNode('$' + arity, null, new SemiNativeNode(fn));
+    for (let i = arity - 1; i > 0; i--) {
+      node = new LambdaNode('$' + i, null, node);
+    }
+    return node.evaluate(EMPTY_VALUE_CONTEXT);
   }
 }

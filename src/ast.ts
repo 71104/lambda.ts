@@ -1,8 +1,10 @@
+import { Context } from './context.js';
 import { InternalError, RuntimeError, TypeError } from './errors.js';
 import {
   EMPTY_SUBSTITUTION,
   IotaType,
   LambdaType,
+  ObjectType,
   Substitution,
   TauType,
   TypeContext,
@@ -149,6 +151,41 @@ export class NativeNode implements NodeInterface {
   }
 }
 
+export class SemiNativeNode implements NodeInterface {
+  private readonly _arity: number;
+
+  private *_args(): Generator<string, void> {
+    for (let i = 1; i <= this._arity; i++) {
+      yield '$' + i;
+    }
+  }
+
+  public constructor(public readonly fn: (...args: ValueInterface[]) => ValueInterface) {
+    this._arity = fn.length;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>(this._args());
+  }
+
+  public getType(): TypeResults {
+    return new TypeResults(EMPTY_SUBSTITUTION, UnknownType.INSTANCE);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const args = [...this._args()];
+    args.forEach(name => {
+      if (!context.has(name)) {
+        throw new InternalError('incorrect number of arguments received');
+      }
+    });
+    return this.fn.apply(
+      null,
+      args.map(name => context.top(name)),
+    );
+  }
+}
+
 export class ApplicationNode implements NodeInterface {
   public constructor(
     public readonly left: NodeInterface,
@@ -269,5 +306,23 @@ export class FixNode implements NodeInterface {
 
   public evaluate(): Closure {
     return FixNode._VALUE;
+  }
+}
+
+export class FieldNode implements NodeInterface {
+  public constructor(public readonly name: string) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>();
+  }
+
+  public getType(): TypeResults {
+    const field = VariableType.getNew();
+    const operand = new ObjectType(Context.create<TauType>().push(this.name, field));
+    return new TypeResults(EMPTY_SUBSTITUTION, new LambdaType(operand, field));
+  }
+
+  public evaluate(): ValueInterface {
+    return Closure.wrap(value => value.getField(this.name));
   }
 }

@@ -7,6 +7,7 @@ export type Token =
   | 'comma'
   | 'complex'
   | 'fat-arrow'
+  | 'field'
   | 'identifier'
   | 'keyword:boolean'
   | 'keyword:complex'
@@ -51,6 +52,9 @@ export class Lexer {
     ['keyword:complex', /^complex\b/],
     ['keyword:boolean', /^boolean\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
+
+    // field
+    ['field', /^\.[A-Za-z_][A-Za-z0-9_]*/],
 
     // strings and templates
     ['string', /^('[^']*(\\'[^']*)*'|"[^"]*(\\"[^"]*)*")/],

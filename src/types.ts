@@ -213,6 +213,8 @@ export class NullType extends IotaType {
 }
 
 export class ObjectType extends TauType {
+  public static readonly EMPTY = new ObjectType(Context.create<TauType>());
+
   public constructor(public readonly fields: Context<TauType>) {
     super();
   }
@@ -222,11 +224,7 @@ export class ObjectType extends TauType {
   }
 
   public getFreeVariables(): Set<string> {
-    const result = new Set<string>();
-    this.fields.forEach((_, type) => {
-      type.getFreeVariables().forEach(name => result.add(name));
-    });
-    return result;
+    return new Set<string>();
   }
 
   public substitute(substitution: Substitution): ObjectType {
@@ -257,6 +255,7 @@ export class ObjectType extends TauType {
 }
 
 export class BooleanType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new BooleanType();
 
   private constructor() {
@@ -270,6 +269,8 @@ export class BooleanType extends IotaType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType || other instanceof BooleanType) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -283,6 +284,7 @@ export class BooleanType extends IotaType {
 }
 
 export class ComplexType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new ComplexType();
 
   private constructor() {
@@ -296,6 +298,8 @@ export class ComplexType extends IotaType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType || other instanceof ComplexType) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -309,6 +313,7 @@ export class ComplexType extends IotaType {
 }
 
 export class RealType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new RealType();
 
   private constructor() {
@@ -326,6 +331,8 @@ export class RealType extends IotaType {
       other instanceof RealType
     ) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -339,6 +346,7 @@ export class RealType extends IotaType {
 }
 
 export class RationalType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new RationalType();
 
   private constructor() {
@@ -357,6 +365,8 @@ export class RationalType extends IotaType {
       other instanceof RationalType
     ) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -370,6 +380,7 @@ export class RationalType extends IotaType {
 }
 
 export class IntegerType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new IntegerType();
 
   private constructor() {
@@ -389,6 +400,8 @@ export class IntegerType extends IotaType {
       other instanceof IntegerType
     ) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -402,6 +415,7 @@ export class IntegerType extends IotaType {
 }
 
 export class NaturalType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new NaturalType();
 
   private constructor() {
@@ -422,6 +436,8 @@ export class NaturalType extends IotaType {
       other instanceof NaturalType
     ) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -435,6 +451,7 @@ export class NaturalType extends IotaType {
 }
 
 export class StringType extends IotaType {
+  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new StringType();
 
   private constructor() {
@@ -448,6 +465,8 @@ export class StringType extends IotaType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType || other instanceof StringType) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return BooleanType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);

@@ -1,5 +1,6 @@
 import {
   ApplicationNode,
+  FieldNode,
   FixNode,
   LambdaNode,
   LetNode,
@@ -215,15 +216,23 @@ export class Parser {
   }
 
   private _parse1(terminators: Token[]): NodeInterface {
-    let node = this._parse0(terminators);
+    let node: NodeInterface = this._parse0(terminators);
+    while (this._lexer.token === 'field') {
+      node = new ApplicationNode(new FieldNode(this._lexer.step().substring(1)), node);
+    }
+    return node;
+  }
+
+  private _parse2(terminators: Token[]): NodeInterface {
+    let node = this._parse1(terminators);
     while (!terminators.includes(this._lexer.token)) {
-      node = new ApplicationNode(node, this._parse0(terminators));
+      node = new ApplicationNode(node, this._parse1(terminators));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse1(terminators);
+    return this._parse2(terminators);
   }
 
   public parse(): NodeInterface {
