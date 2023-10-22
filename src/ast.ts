@@ -1,5 +1,5 @@
 import { Context } from './context.js';
-import { InternalError, RuntimeError, TypeError } from './errors.js';
+import { InternalError, RuntimeError } from './errors.js';
 import {
   BooleanType,
   EMPTY_SUBSTITUTION,
@@ -125,18 +125,11 @@ export class ListLiteralNode implements NodeInterface {
     let { substitution, type } = this.elements[0].getType(context);
     for (let i = 1; i < this.elements.length; i++) {
       context = context.map((_, scheme) => scheme.substitute(substitution));
-      const results = this.elements[i].getType(context);
+      let results = this.elements[i].getType(context);
       substitution = substitution.add(results.substitution);
-      const leftAttempt = results.type.leq(type, substitution);
-      const rightAttempt = type.leq(results.type, substitution);
-      if (leftAttempt) {
-        substitution = substitution.add(leftAttempt);
-      } else if (rightAttempt) {
-        substitution = substitution.add(rightAttempt);
-        type = results.type;
-      } else {
-        throw new TypeError(`cannot unify '${type.toString()}' and '${results.type.toString()}'`);
-      }
+      results = results.type.max(type, substitution);
+      substitution = results.substitution;
+      type = results.type;
     }
     return new TypeResults(substitution, new ListType(type.substitute(substitution)));
   }
@@ -426,17 +419,7 @@ export class IfNode implements NodeInterface {
     context = context.map((_, scheme) => scheme.substitute(substitution));
     const elseExpression = this.elseExpression.getType(context);
     substitution = substitution.add(elseExpression.substitution);
-    const elseSubstitution = elseExpression.type.leq(thenExpression.type, substitution);
-    const thenSubstitution = thenExpression.type.leq(elseExpression.type, substitution);
-    if (elseSubstitution) {
-      return new TypeResults(elseSubstitution, thenExpression.type.substitute(elseSubstitution));
-    } else if (thenSubstitution) {
-      return new TypeResults(thenSubstitution, elseExpression.type.substitute(thenSubstitution));
-    } else {
-      throw new TypeError(
-        `cannot unify '${thenExpression.type.toString()}' and '${elseExpression.type.toString()}'`,
-      );
-    }
+    return thenExpression.type.max(elseExpression.type, substitution);
   }
 
   public evaluate(context: ValueContext): ValueInterface {

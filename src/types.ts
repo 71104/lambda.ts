@@ -44,6 +44,18 @@ export abstract class TauType {
     }
   }
 
+  public max(other: TauType, substitution: Substitution): TypeResults {
+    const leftAttempt = this.leq(other, substitution);
+    const rightAttempt = other.leq(this, substitution);
+    if (leftAttempt) {
+      return new TypeResults(leftAttempt, other.substitute(leftAttempt));
+    } else if (rightAttempt) {
+      return new TypeResults(rightAttempt, this.substitute(rightAttempt));
+    } else {
+      throw new TypeError(`cannot unify '${this.toString()}' and '${other.toString()}'`);
+    }
+  }
+
   public close(context?: TypeContext): TypeScheme {
     if (context) {
       return new TypeScheme(
