@@ -311,7 +311,8 @@ export class FieldNode implements NodeInterface {
 
   public getType(): TypeResults {
     const field = VariableType.getNew();
-    const operand = ObjectType.create(Context.create<TauType>().push(this.name, field));
+    const method = new LambdaType(ObjectType.EMPTY, field);
+    const operand = ObjectType.create(Context.create<TauType>().push(this.name, method));
     return new TypeResults(EMPTY_SUBSTITUTION, new LambdaType(operand, field));
   }
 
