@@ -8,6 +8,7 @@ import {
   ListLiteralNode,
   LiteralNode,
   NodeInterface,
+  TemplateStringLiteral,
   VariableNode,
 } from './ast.js';
 import { InternalError, SyntaxError } from './errors.js';
@@ -126,6 +127,39 @@ export class Parser {
     }
   }
 
+  private _parseTemplate(): NodeInterface {
+    const pieces: NodeInterface[] = [
+      new LiteralNode(
+        new StringValue(unescapeString(this._lexer.expect('template-begin').slice(1, -2))),
+        StringType.INSTANCE,
+      ),
+    ];
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      pieces.push(this._parseRoot(['template-middle', 'template-end']));
+      switch (this._lexer.token) {
+        case 'template-middle':
+          pieces.push(
+            new LiteralNode(
+              new StringValue(unescapeString(this._lexer.step().slice(1, -2))),
+              StringType.INSTANCE,
+            ),
+          );
+          break;
+        case 'template-end':
+          pieces.push(
+            new LiteralNode(
+              new StringValue(unescapeString(this._lexer.step().slice(1, -1))),
+              StringType.INSTANCE,
+            ),
+          );
+          return new TemplateStringLiteral(pieces);
+        default:
+          throw new InternalError(`template string expected but '${this._lexer.token}' found`);
+      }
+    }
+  }
+
   private _parseLambdaInternal(terminators: Token[]): NodeInterface {
     const name = this._lexer.expect('identifier');
     const type = this._parseOptionalType();
@@ -236,13 +270,16 @@ export class Parser {
         const realValue = parseFloat(this._lexer.step());
         return new LiteralNode(new RealValue(realValue), RealType.INSTANCE);
       }
-      case 'string': {
+      case 'square-left':
+        return this._parseList();
+      case 'string':
+      case 'template': {
         const label = this._lexer.step();
         const stringValue = unescapeString(label.slice(1, -1));
         return new LiteralNode(new StringValue(stringValue), StringType.INSTANCE);
       }
-      case 'square-left':
-        return this._parseList();
+      case 'template-begin':
+        return this._parseTemplate();
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }

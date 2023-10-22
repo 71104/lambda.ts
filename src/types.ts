@@ -35,6 +35,15 @@ export abstract class TauType {
 
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 
+  public leqOrThrow(other: TauType, substitution: Substitution): Substitution {
+    const result = this.leq(other, substitution);
+    if (result) {
+      return result;
+    } else {
+      throw new TypeError(`cannot unify '${this.toString()}' and '${other.toString()}'`);
+    }
+  }
+
   public close(context?: TypeContext): TypeScheme {
     if (context) {
       return new TypeScheme(

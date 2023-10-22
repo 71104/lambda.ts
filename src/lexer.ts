@@ -33,6 +33,10 @@ export type Token =
   | 'string'
   | 'square-left'
   | 'square-right'
+  | 'template'
+  | 'template-begin'
+  | 'template-end'
+  | 'template-middle'
   | 'end';
 
 export type TokenExpectation = Token | 'identifier-or-keyword';
@@ -67,6 +71,10 @@ export class Lexer {
 
     // strings and templates
     ['string', /^('[^']*(\\'[^']*)*'|"[^"]*(\\"[^"]*)*")/],
+    ['template-begin', /^`[^`]*(\\`[^`]*)*\$\{/],
+    ['template-middle', /^\}[^`]*(\\`[^`]*)*\$\{/],
+    ['template-end', /^\}[^`]*(\\`[^`]*)*`/],
+    ['template', /^`[^`]*(\\`[^`]*)*`/],
 
     // numbers
     ['complex', /^[0-9]+(\.[0-9]+)?i\b/],

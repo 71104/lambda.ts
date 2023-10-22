@@ -7,6 +7,7 @@ import {
   LambdaType,
   ListType,
   ObjectType,
+  StringType,
   TauType,
   TypeContext,
   TypeResults,
@@ -19,6 +20,7 @@ import {
   Closure,
   EMPTY_VALUE_CONTEXT,
   ListValue,
+  StringValue,
   ValueContext,
   ValueInterface,
   unmarshal,
@@ -69,6 +71,42 @@ export class LiteralNode implements NodeInterface {
 
   public evaluate(): ValueInterface {
     return this.value;
+  }
+}
+
+export class TemplateStringLiteral implements NodeInterface {
+  public constructor(public readonly pieces: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.pieces.map(piece => [...piece.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    let substitution = EMPTY_SUBSTITUTION;
+    for (const piece of this.pieces) {
+      context = context.map((_, scheme) => scheme.substitute(substitution));
+      const results = piece.getType(context);
+      substitution = results.type.leqOrThrow(
+        StringType.INSTANCE,
+        substitution.add(results.substitution),
+      );
+    }
+    return new TypeResults(substitution, StringType.INSTANCE);
+  }
+
+  public evaluate(context: ValueContext): StringValue {
+    const strings = this.pieces.map(piece => {
+      const value = piece.evaluate(context);
+      if (value instanceof StringValue) {
+        return value.value;
+      } else {
+        throw new RuntimeError(
+          `all template string pieces must be strings, found ${piece.toString()}`,
+        );
+      }
+    });
+    return new StringValue(strings.join(''));
   }
 }
 
@@ -242,15 +280,11 @@ export class ApplicationNode implements NodeInterface {
       context.map((_, scheme) => scheme.substitute(left.substitution)),
     );
     const lambda = new LambdaType(right.type, VariableType.getNew());
-    const substitution = left.type.leq(lambda, right.substitution);
-    if (substitution) {
-      return new TypeResults(
-        left.substitution.add(right.substitution).add(substitution),
-        lambda.right.substitute(substitution),
-      );
-    } else {
-      throw new TypeError(`cannot unify ${left.type} and ${lambda}`);
-    }
+    const substitution = left.type.leqOrThrow(lambda, right.substitution);
+    return new TypeResults(
+      left.substitution.add(right.substitution).add(substitution),
+      lambda.right.substitute(substitution),
+    );
   }
 
   public evaluate(context: ValueContext): ValueInterface {
@@ -385,11 +419,7 @@ export class IfNode implements NodeInterface {
 
   public getType(context: TypeContext): TypeResults {
     const condition = this.condition.getType(context);
-    const maybeSubstitution = condition.type.leq(BooleanType.INSTANCE, condition.substitution);
-    if (!maybeSubstitution) {
-      throw new TypeError(`cannot unify '${condition.type.toString()}' and 'boolean'`);
-    }
-    let substitution = maybeSubstitution;
+    let substitution = condition.type.leqOrThrow(BooleanType.INSTANCE, condition.substitution);
     context = context.map((_, scheme) => scheme.substitute(substitution));
     const thenExpression = this.thenExpression.getType(context);
     substitution = substitution.add(thenExpression.substitution);
