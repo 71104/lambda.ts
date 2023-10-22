@@ -33,7 +33,7 @@ export function unmarshal(value: unknown): ValueInterface {
     case 'object':
       if (!value) {
         return NullValue.INSTANCE;
-      } else if (value instanceof ComplexValue || value instanceof RationalValue) {
+      } else if (value instanceof ComplexValue) {
         return value;
       } else {
         return new NativeObjectValue(value);
@@ -312,8 +312,8 @@ export class RationalValue implements ValueInterface {
     }
   }
 
-  public marshal(): RationalValue {
-    return this;
+  public marshal(): number {
+    return this.numerator / this.denominator;
   }
 }
 
