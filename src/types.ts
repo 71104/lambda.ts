@@ -366,7 +366,7 @@ export class ComplexType extends IotaType {
     if (other instanceof UndefinedType || other instanceof ComplexType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return ComplexType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -399,7 +399,7 @@ export class RealType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return RealType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -433,7 +433,7 @@ export class RationalType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return RationalType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -468,7 +468,7 @@ export class IntegerType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return IntegerType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -504,7 +504,7 @@ export class NaturalType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return NaturalType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -533,7 +533,7 @@ export class StringType extends IotaType {
     if (other instanceof UndefinedType || other instanceof StringType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return StringType.PROTOTYPE.leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
