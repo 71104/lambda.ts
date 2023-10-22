@@ -1,6 +1,7 @@
 import { Context } from './context.js';
 import { InternalError, RuntimeError, TypeError } from './errors.js';
 import {
+  BooleanType,
   EMPTY_SUBSTITUTION,
   IotaType,
   LambdaType,
@@ -318,5 +319,56 @@ export class FieldNode implements NodeInterface {
 
   public evaluate(): ValueInterface {
     return Closure.wrap((value: ValueInterface) => value.getField(this.name));
+  }
+}
+
+export class IfNode implements NodeInterface {
+  public constructor(
+    public readonly condition: NodeInterface,
+    public readonly thenExpression: NodeInterface,
+    public readonly elseExpression: NodeInterface,
+  ) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>([
+      ...this.condition.getFreeVariables(),
+      ...this.thenExpression.getFreeVariables(),
+      ...this.elseExpression.getFreeVariables(),
+    ]);
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    const condition = this.condition.getType(context);
+    const maybeSubstitution = condition.type.leq(BooleanType.INSTANCE, condition.substitution);
+    if (!maybeSubstitution) {
+      throw new TypeError(`cannot unify '${condition.type.toString()}' and 'boolean'`);
+    }
+    let substitution = maybeSubstitution;
+    context = context.map((_name, field) => field.substitute(substitution));
+    const thenExpression = this.thenExpression.getType(context);
+    substitution = substitution.add(thenExpression.substitution);
+    context = context.map((_name, field) => field.substitute(substitution));
+    const elseExpression = this.elseExpression.getType(context);
+    substitution = substitution.add(elseExpression.substitution);
+    const elseSubstitution = elseExpression.type.leq(thenExpression.type, substitution);
+    const thenSubstitution = thenExpression.type.leq(elseExpression.type, substitution);
+    if (elseSubstitution) {
+      return new TypeResults(elseSubstitution, thenExpression.type.substitute(elseSubstitution));
+    } else if (thenSubstitution) {
+      return new TypeResults(thenSubstitution, elseExpression.type.substitute(thenSubstitution));
+    } else {
+      throw new TypeError(
+        `cannot unify '${thenExpression.type.toString()}' and '${elseExpression.type.toString()}'`,
+      );
+    }
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const condition = this.condition.evaluate(context);
+    if (condition.marshal()) {
+      return this.thenExpression.evaluate(context);
+    } else {
+      return this.elseExpression.evaluate(context);
+    }
   }
 }

@@ -2,6 +2,7 @@ import {
   ApplicationNode,
   FieldNode,
   FixNode,
+  IfNode,
   LambdaNode,
   LetNode,
   LiteralNode,
@@ -166,6 +167,16 @@ export class Parser {
     return this._parseLetInternal(terminators);
   }
 
+  private _parseIf(terminators: Token[]): NodeInterface {
+    this._lexer.skip('keyword:if');
+    const condition = this._parseRoot(['keyword:then']);
+    this._lexer.skip('keyword:then');
+    const thenExpression = this._parseRoot(['keyword:else']);
+    this._lexer.skip('keyword:else');
+    const elseExpression = this._parseRoot(terminators);
+    return new IfNode(condition, thenExpression, elseExpression);
+  }
+
   private _parse0(terminators: Token[]): NodeInterface {
     switch (this._lexer.token) {
       case 'bracket-left': {
@@ -188,6 +199,8 @@ export class Parser {
         return FixNode.INSTANCE;
       case 'keyword:fn':
         return this._parseLambda(terminators);
+      case 'keyword:if':
+        return this._parseIf(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
       case 'keyword:null':

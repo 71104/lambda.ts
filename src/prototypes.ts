@@ -70,6 +70,10 @@ function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
   );
 }
 
+definePrototype(BooleanType, BooleanValue, {
+  str: method0(BooleanType, StringType, (value: BooleanValue) => new StringValue(value.toString())),
+});
+
 definePrototype(ComplexType, ComplexValue, {
   str: method0(ComplexType, StringType, (value: ComplexValue) => new StringValue(value.toString())),
   real: method0(ComplexType, RealType, (value: ComplexValue) => new RealValue(value.real)),

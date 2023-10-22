@@ -11,9 +11,11 @@ export type Token =
   | 'identifier'
   | 'keyword:boolean'
   | 'keyword:complex'
+  | 'keyword:else'
   | 'keyword:false'
   | 'keyword:fix'
   | 'keyword:fn'
+  | 'keyword:if'
   | 'keyword:in'
   | 'keyword:integer'
   | 'keyword:let'
@@ -22,6 +24,7 @@ export type Token =
   | 'keyword:real'
   | 'keyword:scheme'
   | 'keyword:string'
+  | 'keyword:then'
   | 'keyword:true'
   | 'keyword:undefined'
   | 'natural'
@@ -38,6 +41,7 @@ export class Lexer {
     // word-like
     ['keyword:undefined', /^undefined\b/],
     ['keyword:true', /^true\b/],
+    ['keyword:then', /^then\b/],
     ['keyword:string', /^string\b/],
     ['keyword:scheme', /^scheme\b/],
     ['keyword:real', /^real\b/],
@@ -46,9 +50,11 @@ export class Lexer {
     ['keyword:let', /^let\b/],
     ['keyword:integer', /^integer\b/],
     ['keyword:in', /^in\b/],
+    ['keyword:if', /^if\b/],
     ['keyword:fn', /^fn\b/],
     ['keyword:fix', /^fix\b/],
     ['keyword:false', /^false\b/],
+    ['keyword:else', /^else\b/],
     ['keyword:complex', /^complex\b/],
     ['keyword:boolean', /^boolean\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
