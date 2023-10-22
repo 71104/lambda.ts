@@ -155,28 +155,28 @@ definePrototype(RationalType, RationalValue, {
     (value: RationalValue) => new RealValue(Math.abs(value.numerator / value.denominator)),
   ),
   ceil: method0(
+    RationalType,
     IntegerType,
-    RealType,
     (value: RationalValue) => new IntegerValue(Math.ceil(value.numerator / value.denominator)),
   ),
   floor: method0(
+    RationalType,
     IntegerType,
-    RealType,
     (value: RationalValue) => new IntegerValue(Math.floor(value.numerator / value.denominator)),
   ),
   round: method0(
+    RationalType,
     IntegerType,
-    RealType,
     (value: RationalValue) => new IntegerValue(Math.round(value.numerator / value.denominator)),
   ),
   trunc: method0(
+    RationalType,
     IntegerType,
-    RealType,
     (value: RationalValue) => new IntegerValue(Math.trunc(value.numerator / value.denominator)),
   ),
   sign: method0(
+    RationalType,
     IntegerType,
-    RealType,
     (value: RationalValue) => new IntegerValue(Math.sign(value.numerator / value.denominator)),
   ),
   sqrt: method0(

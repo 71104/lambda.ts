@@ -261,30 +261,37 @@ export class ObjectType extends IotaType {
     }
   }
 
-  private constructor(fields: Context<TauType>, parent?: IotaType, base?: ObjectType) {
+  private static _bindFields(parent: IotaType, fields: Context<TauType>): Context<TauType> {
+    return fields.map((_name, field) => ObjectType._bindField(parent, field));
+  }
+
+  private constructor(
+    baseFields: Context<TauType> | null,
+    fields: Context<TauType>,
+    parent?: IotaType,
+  ) {
     super();
-    this.fields = fields.map((_name, field) => ObjectType._bindField(parent || this, field));
-    if (base) {
-      this.fields = base.fields.add(this.fields);
+    const boundFields = ObjectType._bindFields(parent || this, fields);
+    if (baseFields) {
+      this.fields = ObjectType._bindFields(parent || this, baseFields).add(boundFields);
+    } else {
+      this.fields = boundFields;
     }
   }
 
   public static create(fields: Context<TauType>): ObjectType {
-    return new ObjectType(fields);
+    return new ObjectType(null, fields);
   }
 
   public static createPrototype(
     parent: IotaType,
     fields: Context<TauType> = Context.create<TauType>(),
   ): ObjectType {
-    return new ObjectType(fields, parent);
+    return new ObjectType(null, fields, parent);
   }
 
   public extend(fields: { [name: string]: TauType }, parent?: IotaType): ObjectType {
-    const child = Context.create<TauType>(fields).map((_name, field) =>
-      ObjectType._bindField(this, field),
-    );
-    return new ObjectType(child, parent, this);
+    return new ObjectType(this.fields, Context.create<TauType>(fields), parent);
   }
 
   public toString(): string {
