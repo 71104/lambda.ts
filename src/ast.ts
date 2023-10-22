@@ -5,15 +5,24 @@ import {
   EMPTY_SUBSTITUTION,
   IotaType,
   LambdaType,
+  ListType,
   ObjectType,
   TauType,
   TypeContext,
   TypeResults,
   TypeScheme,
+  UndefinedType,
   UnknownType,
   VariableType,
 } from './types.js';
-import { Closure, EMPTY_VALUE_CONTEXT, ValueContext, ValueInterface, unmarshal } from './values.js';
+import {
+  Closure,
+  EMPTY_VALUE_CONTEXT,
+  ListValue,
+  ValueContext,
+  ValueInterface,
+  unmarshal,
+} from './values.js';
 
 export interface NodeInterface {
   /**
@@ -60,6 +69,43 @@ export class LiteralNode implements NodeInterface {
 
   public evaluate(): ValueInterface {
     return this.value;
+  }
+}
+
+export class ListLiteralNode implements NodeInterface {
+  public constructor(public readonly elements: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.elements.map(element => [...element.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    if (this.elements.length < 1) {
+      return new TypeResults(EMPTY_SUBSTITUTION, new ListType(UndefinedType.INSTANCE));
+    }
+    let { substitution, type } = this.elements[0].getType(context);
+    for (let i = 1; i < this.elements.length; i++) {
+      context = context.map((_, scheme) => scheme.substitute(substitution));
+      const results = this.elements[i].getType(context);
+      substitution = substitution.add(results.substitution);
+      const leftAttempt = results.type.leq(type, substitution);
+      const rightAttempt = type.leq(results.type, substitution);
+      if (leftAttempt) {
+        substitution = substitution.add(leftAttempt);
+      } else if (rightAttempt) {
+        substitution = substitution.add(rightAttempt);
+        type = results.type;
+      } else {
+        throw new TypeError(`cannot unify '${type.toString()}' and '${results.type.toString()}'`);
+      }
+    }
+    return new TypeResults(substitution, new ListType(type.substitute(substitution)));
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const elements = this.elements.map(element => element.evaluate(context));
+    return new ListValue(elements, 0, elements.length);
   }
 }
 
@@ -234,7 +280,7 @@ export class LetNode implements NodeInterface {
   public getType(context: TypeContext): TypeResults {
     const expression = this.expression.getType(context);
     // TODO: check expression type against type constraints.
-    context = context.map((_, type) => type.substitute(expression.substitution));
+    context = context.map((_, scheme) => scheme.substitute(expression.substitution));
     const rest = this.rest.getType(context.push(this.name, expression.type.close(context)));
     return new TypeResults(expression.substitution.add(rest.substitution), rest.type);
   }
@@ -344,10 +390,10 @@ export class IfNode implements NodeInterface {
       throw new TypeError(`cannot unify '${condition.type.toString()}' and 'boolean'`);
     }
     let substitution = maybeSubstitution;
-    context = context.map((_name, field) => field.substitute(substitution));
+    context = context.map((_, scheme) => scheme.substitute(substitution));
     const thenExpression = this.thenExpression.getType(context);
     substitution = substitution.add(thenExpression.substitution);
-    context = context.map((_name, field) => field.substitute(substitution));
+    context = context.map((_, scheme) => scheme.substitute(substitution));
     const elseExpression = this.elseExpression.getType(context);
     substitution = substitution.add(elseExpression.substitution);
     const elseSubstitution = elseExpression.type.leq(thenExpression.type, substitution);

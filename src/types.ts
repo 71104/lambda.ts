@@ -207,6 +207,8 @@ export class UnknownType extends IotaType {
       return other.fields.reduce((substitution, _name, field) => {
         return field.leq(UnknownType.INSTANCE, substitution);
       }, substitution);
+    } else if (other instanceof ListType) {
+      return new ListType(UnknownType.INSTANCE).leq(other, substitution);
     } else if (other instanceof LambdaType) {
       return new LambdaType(UndefinedType.INSTANCE, UnknownType.INSTANCE).leq(other, substitution);
     } else if (other instanceof VariableType) {
@@ -314,6 +316,44 @@ export class ObjectType extends IotaType {
         return this.leq(other.substitute(substitution), substitution);
       } else {
         return TauType._substituteIfNoCycles(substitution, other.name, this);
+      }
+    } else {
+      return null;
+    }
+  }
+}
+
+export class ListType extends TauType {
+  public constructor(public readonly inner: TauType) {
+    super();
+  }
+
+  public toString(): string {
+    return `(${this.inner.toString()})[]`;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return this.inner.getFreeVariables();
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    return new ListType(this.inner.substitute(substitution));
+  }
+
+  public bindThis(_thisType: TauType, substitution: Substitution): TypeResults {
+    return new TypeResults(substitution, this);
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType) {
+      return substitution;
+    } else if (other instanceof ListType) {
+      return this.inner.leq(other.inner, substitution);
+    } else if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(other.substitute(substitution), substitution);
+      } else {
+        return substitution.push(other.name, this);
       }
     } else {
       return null;

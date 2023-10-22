@@ -137,6 +137,49 @@ export class NativeObjectValue implements ValueInterface {
   }
 }
 
+export class ListValue implements ValueInterface {
+  public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
+  public static readonly EMPTY = new ListValue([], 0, 0);
+
+  public constructor(
+    public readonly elements: ValueInterface[],
+    public readonly offset: number,
+    public readonly count: number,
+  ) {
+    if (offset < 0) {
+      throw new RuntimeError(`invalid list view offset ${offset}`);
+    }
+    if (count < 0) {
+      throw new RuntimeError(`invalid list view count ${count}`);
+    }
+    if (offset + count > elements.length) {
+      throw new RuntimeError(
+        `list view offset+count exceeds length (${offset}+${count}>${elements.length})`,
+      );
+    }
+  }
+
+  public toString(): string {
+    return `[${this.elements.map(element => element.toString()).join(', ')}]`;
+  }
+
+  public bindThis(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (ListValue.PROTOTYPE.has(name)) {
+      return ListValue.PROTOTYPE.top(name).bindThis(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of list`);
+    }
+  }
+
+  public marshal(): unknown[] {
+    return Array.from({ length: this.count }, (_, i) => this.elements[this.offset + i].marshal());
+  }
+}
+
 export class BooleanValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly FALSE = new BooleanValue(false);

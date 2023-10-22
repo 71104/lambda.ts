@@ -31,6 +31,8 @@ export type Token =
   | 'natural'
   | 'real'
   | 'string'
+  | 'square-left'
+  | 'square-right'
   | 'end';
 
 export type TokenExpectation = Token | 'identifier-or-keyword';
@@ -82,6 +84,8 @@ export class Lexer {
     ['colon', /^:/],
     ['comma', /^,/],
     ['dollar', /^\$/],
+    ['square-left', /^\[/],
+    ['square-right', /^\]/],
   ];
 
   public readonly _originalInput: string;

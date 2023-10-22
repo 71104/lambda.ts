@@ -5,6 +5,7 @@ import {
   IfNode,
   LambdaNode,
   LetNode,
+  ListLiteralNode,
   LiteralNode,
   NodeInterface,
   VariableNode,
@@ -167,6 +168,21 @@ export class Parser {
     return this._parseLetInternal(terminators);
   }
 
+  private _parseList(): NodeInterface {
+    this._lexer.skip('square-left');
+    const elements: NodeInterface[] = [];
+    while ('square-right' !== this._lexer.token) {
+      elements.push(this._parseRoot(['comma', 'square-right']));
+      if ('comma' !== this._lexer.token) {
+        break;
+      } else {
+        this._lexer.next();
+      }
+    }
+    this._lexer.skip('square-right');
+    return new ListLiteralNode(elements);
+  }
+
   private _parseIf(terminators: Token[]): NodeInterface {
     this._lexer.skip('keyword:if');
     const condition = this._parseRoot(['keyword:then']);
@@ -225,6 +241,8 @@ export class Parser {
         const stringValue = unescapeString(label.slice(1, -1));
         return new LiteralNode(new StringValue(stringValue), StringType.INSTANCE);
       }
+      case 'square-left':
+        return this._parseList();
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }
