@@ -6,6 +6,7 @@ export type Token =
   | 'colon'
   | 'comma'
   | 'complex'
+  | 'dollar'
   | 'fat-arrow'
   | 'field'
   | 'identifier'
@@ -80,6 +81,7 @@ export class Lexer {
     ['bracket-right', /^\)/],
     ['colon', /^:/],
     ['comma', /^,/],
+    ['dollar', /^\$/],
   ];
 
   public readonly _originalInput: string;

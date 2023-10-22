@@ -246,8 +246,18 @@ export class Parser {
     return node;
   }
 
+  private _parse3(terminators: Token[]): NodeInterface {
+    const terminatorsPlusDollar = terminators.concat('dollar');
+    let node = this._parse2(terminatorsPlusDollar);
+    while (!terminators.includes(this._lexer.token)) {
+      this._lexer.skip('dollar');
+      node = new ApplicationNode(node, this._parse2(terminatorsPlusDollar));
+    }
+    return node;
+  }
+
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse2(terminators);
+    return this._parse3(terminators);
   }
 
   public parse(): NodeInterface {
