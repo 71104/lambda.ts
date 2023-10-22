@@ -31,6 +31,8 @@ export abstract class TauType {
     return substitution;
   }
 
+  public abstract bindThis(thisType: TauType, substitution: Substitution): TypeResults | null;
+
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 
   public close(context?: TypeContext): TypeScheme {
@@ -63,6 +65,10 @@ export abstract class IotaType extends TauType {
 
   public substitute(): IotaType {
     return this;
+  }
+
+  public bindThis(_thisType: TauType, substitution: Substitution): TypeResults {
+    return new TypeResults(substitution, this);
   }
 }
 
@@ -134,6 +140,14 @@ export class VariableType extends TauType {
     }
   }
 
+  public bindThis(thisType: TauType, substitution: Substitution): TypeResults | null {
+    if (substitution.has(this.name)) {
+      return this.substitute(substitution).bindThis(thisType, substitution);
+    } else {
+      return new TypeResults(substitution, VariableType.getNew());
+    }
+  }
+
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
       return this.substitute(substitution).leq(other, substitution);
@@ -193,6 +207,8 @@ export class UnknownType extends IotaType {
       return other.fields.reduce((substitution, _name, field) => {
         return field.leq(UnknownType.INSTANCE, substitution);
       }, substitution);
+    } else if (other instanceof LambdaType) {
+      return new LambdaType(UndefinedType.INSTANCE, UnknownType.INSTANCE).leq(other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -231,27 +247,48 @@ export class NullType extends IotaType {
   }
 }
 
-export class ObjectType extends TauType {
-  public static readonly EMPTY = new ObjectType(Context.create<TauType>());
+export class ObjectType extends IotaType {
+  public static readonly EMPTY = ObjectType.create(Context.create<TauType>());
 
-  public constructor(public readonly fields: Context<TauType>) {
-    super();
+  public readonly fields: Context<TauType>;
+
+  private static _bindField(parent: IotaType, field: TauType): TauType {
+    const result = field.bindThis(parent, EMPTY_SUBSTITUTION);
+    if (result) {
+      return result.type.substitute(result.substitution);
+    } else {
+      throw new TypeError(`cannot bind '${parent.toString()}' as 'this' in '${field.toString()}'`);
+    }
   }
 
-  public extend(fields: { [name: string]: TauType }): ObjectType {
-    return new ObjectType(this.fields.pushAll(fields));
+  private constructor(fields: Context<TauType>, parent?: IotaType, base?: ObjectType) {
+    super();
+    this.fields = fields.map((_name, field) => ObjectType._bindField(parent || this, field));
+    if (base) {
+      this.fields = base.fields.add(this.fields);
+    }
+  }
+
+  public static create(fields: Context<TauType>): ObjectType {
+    return new ObjectType(fields);
+  }
+
+  public static createPrototype(
+    parent: IotaType,
+    fields: Context<TauType> = Context.create<TauType>(),
+  ): ObjectType {
+    return new ObjectType(fields, parent);
+  }
+
+  public extend(fields: { [name: string]: TauType }, parent?: IotaType): ObjectType {
+    const child = Context.create<TauType>(fields).map((_name, field) =>
+      ObjectType._bindField(this, field),
+    );
+    return new ObjectType(child, parent, this);
   }
 
   public toString(): string {
     return 'object';
-  }
-
-  public getFreeVariables(): Set<string> {
-    return new Set<string>();
-  }
-
-  public substitute(substitution: Substitution): ObjectType {
-    return new ObjectType(this.fields.map((_, field) => field.substitute(substitution)));
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
@@ -278,8 +315,8 @@ export class ObjectType extends TauType {
 }
 
 export class BooleanType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new BooleanType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(BooleanType.INSTANCE);
 
   private constructor() {
     super();
@@ -307,8 +344,8 @@ export class BooleanType extends IotaType {
 }
 
 export class ComplexType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new ComplexType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(ComplexType.INSTANCE);
 
   private constructor() {
     super();
@@ -336,8 +373,8 @@ export class ComplexType extends IotaType {
 }
 
 export class RealType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new RealType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(RealType.INSTANCE);
 
   private constructor() {
     super();
@@ -369,8 +406,8 @@ export class RealType extends IotaType {
 }
 
 export class RationalType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new RationalType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(RationalType.INSTANCE);
 
   private constructor() {
     super();
@@ -403,8 +440,8 @@ export class RationalType extends IotaType {
 }
 
 export class IntegerType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new IntegerType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(IntegerType.INSTANCE);
 
   private constructor() {
     super();
@@ -438,8 +475,8 @@ export class IntegerType extends IotaType {
 }
 
 export class NaturalType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new NaturalType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(NaturalType.INSTANCE);
 
   private constructor() {
     super();
@@ -474,8 +511,8 @@ export class NaturalType extends IotaType {
 }
 
 export class StringType extends IotaType {
-  public static readonly PROTOTYPE = ObjectType.EMPTY;
   public static readonly INSTANCE = new StringType();
+  public static readonly PROTOTYPE = ObjectType.createPrototype(StringType.INSTANCE);
 
   private constructor() {
     super();
@@ -520,6 +557,15 @@ export class LambdaType extends TauType {
 
   public substitute(substitution: Substitution): TauType {
     return new LambdaType(this.left.substitute(substitution), this.right.substitute(substitution));
+  }
+
+  public bindThis(thisType: TauType, substitution: Substitution): TypeResults | null {
+    const result = this.leq(new LambdaType(thisType, this.right), substitution);
+    if (result) {
+      return new TypeResults(result, this.right.substitute(result));
+    } else {
+      return null;
+    }
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
