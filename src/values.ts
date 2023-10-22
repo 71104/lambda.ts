@@ -5,7 +5,7 @@ import { InternalError, RuntimeError } from './errors.js';
 export interface ValueInterface {
   toString(): string;
 
-  bind(value: ValueInterface): ValueInterface;
+  bindThis(thisValue: ValueInterface): ValueInterface;
 
   getField(name: string): ValueInterface;
 
@@ -54,7 +54,7 @@ export class UndefinedValue implements ValueInterface {
     return 'undefined';
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
@@ -76,7 +76,7 @@ export class NullValue implements ValueInterface {
     return 'null';
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
@@ -98,13 +98,13 @@ export class ObjectValue implements ValueInterface {
     return 'object';
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (this.fields.has(name)) {
-      return this.fields.top(name).bind(this);
+      return this.fields.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`object doesn't have a field named ${JSON.stringify(name)}`);
     }
@@ -124,12 +124,12 @@ export class NativeObjectValue implements ValueInterface {
     return this.value.toString();
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
-    return unmarshal((this.value as { [name: string]: unknown })[name]).bind(this);
+    return unmarshal((this.value as { [name: string]: unknown })[name]).bindThis(this);
   }
 
   public marshal(): object {
@@ -152,13 +152,13 @@ export class BooleanValue implements ValueInterface {
     return this.value ? 'true' : 'false';
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (BooleanValue.PROTOTYPE.has(name)) {
-      return BooleanValue.PROTOTYPE.top(name).bind(this);
+      return BooleanValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of boolean`);
     }
@@ -189,13 +189,13 @@ export class ComplexValue implements ValueInterface {
     }
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (ComplexValue.PROTOTYPE.has(name)) {
-      return ComplexValue.PROTOTYPE.top(name).bind(this);
+      return ComplexValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of complex`);
     }
@@ -220,13 +220,13 @@ export class RealValue implements ValueInterface {
     return '' + this.value;
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (RealValue.PROTOTYPE.has(name)) {
-      return RealValue.PROTOTYPE.top(name).bind(this);
+      return RealValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of real`);
     }
@@ -257,13 +257,13 @@ export class RationalValue implements ValueInterface {
     }
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (RationalValue.PROTOTYPE.has(name)) {
-      return RationalValue.PROTOTYPE.top(name).bind(this);
+      return RationalValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of rational`);
     }
@@ -288,13 +288,13 @@ export class IntegerValue implements ValueInterface {
     return '' + this.value;
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (IntegerValue.PROTOTYPE.has(name)) {
-      return IntegerValue.PROTOTYPE.top(name).bind(this);
+      return IntegerValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of integer`);
     }
@@ -323,13 +323,13 @@ export class NaturalValue implements ValueInterface {
     return '' + this.value;
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (NaturalValue.PROTOTYPE.has(name)) {
-      return NaturalValue.PROTOTYPE.top(name).bind(this);
+      return NaturalValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of natural`);
     }
@@ -354,13 +354,13 @@ export class StringValue implements ValueInterface {
     return JSON.stringify(this.value);
   }
 
-  public bind(): ValueInterface {
+  public bindThis(): ValueInterface {
     return this;
   }
 
   public getField(name: string): ValueInterface {
     if (StringValue.PROTOTYPE.has(name)) {
-      return StringValue.PROTOTYPE.top(name).bind(this);
+      return StringValue.PROTOTYPE.top(name).bindThis(this);
     } else {
       throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of string`);
     }
@@ -382,8 +382,8 @@ export class Closure implements ValueInterface {
     return `closure`;
   }
 
-  public bind(value: ValueInterface): ValueInterface {
-    return this.apply(value);
+  public bindThis(thisValue: ValueInterface): ValueInterface {
+    return this.apply(thisValue);
   }
 
   public getField(name: string): ValueInterface {
@@ -425,12 +425,17 @@ export class Closure implements ValueInterface {
     );
   }
 
-  public static wrap(fn: (...args: ValueInterface[]) => ValueInterface): Closure {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  public static wrap(fn: Function): Closure {
     const arity = fn.length;
     if (arity < 1) {
       throw new InternalError('cannot wrap a no-arg function');
     }
-    let node = new LambdaNode('$' + arity, null, new SemiNativeNode(fn));
+    let node = new LambdaNode(
+      '$' + arity,
+      null,
+      new SemiNativeNode(fn as (...args: ValueInterface[]) => ValueInterface),
+    );
     for (let i = arity - 1; i > 0; i--) {
       node = new LambdaNode('$' + i, null, node);
     }

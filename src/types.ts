@@ -49,6 +49,13 @@ export type Substitution = Context<TauType>;
 export const Substitution = Context<TauType>;
 export const EMPTY_SUBSTITUTION = Substitution.create<TauType>();
 
+export class TypeResults {
+  public constructor(
+    public readonly substitution: Substitution,
+    public readonly type: TauType,
+  ) {}
+}
+
 export abstract class IotaType extends TauType {
   public getFreeVariables(): Set<string> {
     return new Set<string>();
@@ -182,7 +189,11 @@ export class UnknownType extends IotaType {
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
-    if (other instanceof VariableType) {
+    if (other instanceof ObjectType) {
+      return other.fields.reduce((substitution, _name, field) => {
+        return field.leq(UnknownType.INSTANCE, substitution);
+      }, substitution);
+    } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
       } else {
@@ -225,6 +236,10 @@ export class ObjectType extends TauType {
 
   public constructor(public readonly fields: Context<TauType>) {
     super();
+  }
+
+  public extend(fields: { [name: string]: TauType }): ObjectType {
+    return new ObjectType(this.fields.pushAll(fields));
   }
 
   public toString(): string {

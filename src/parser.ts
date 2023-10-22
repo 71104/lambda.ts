@@ -34,6 +34,8 @@ import {
   UndefinedValue,
 } from './values.js';
 
+import './prototypes.js';
+
 function unescapeString(input: string): string {
   return input
     .replace(/\\b/g, '\b')

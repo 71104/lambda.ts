@@ -5,21 +5,14 @@ import {
   IotaType,
   LambdaType,
   ObjectType,
-  Substitution,
   TauType,
   TypeContext,
+  TypeResults,
   TypeScheme,
   UnknownType,
   VariableType,
 } from './types.js';
 import { Closure, EMPTY_VALUE_CONTEXT, ValueContext, ValueInterface, unmarshal } from './values.js';
-
-export class TypeResults {
-  public constructor(
-    public readonly substitution: Substitution,
-    public readonly type: TauType,
-  ) {}
-}
 
 export interface NodeInterface {
   /**
@@ -323,6 +316,6 @@ export class FieldNode implements NodeInterface {
   }
 
   public evaluate(): ValueInterface {
-    return Closure.wrap(value => value.getField(this.name));
+    return Closure.wrap((value: ValueInterface) => value.getField(this.name));
   }
 }
