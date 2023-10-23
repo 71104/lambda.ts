@@ -1,21 +1,25 @@
+import { Context } from './context.js';
 import {
   BooleanType,
   ComplexType,
   IntegerType,
   IotaType,
   LambdaType,
+  ListType,
   NaturalType,
   ObjectType,
   RationalType,
   RealType,
   StringType,
   TauType,
+  VariableType,
 } from './types.js';
 import {
   BooleanValue,
   Closure,
   ComplexValue,
   IntegerValue,
+  ListValue,
   NaturalValue,
   RationalValue,
   RealValue,
@@ -50,6 +54,25 @@ function definePrototype(
   );
 }
 
+function defineUnboundPrototype(
+  TypeConstructor: { PROTOTYPE: Context<TauType> },
+  ValueConstructor: { PROTOTYPE: ValueContext },
+  terms: { [name: string]: TypedTerm },
+): void {
+  const types: { [name: string]: TauType } = Object.create(null);
+  const values: { [name: string]: ValueInterface } = Object.create(null);
+  for (const name in terms) {
+    if (Object.prototype.hasOwnProperty.call(terms, name)) {
+      types[name] = terms[name].type;
+      values[name] = terms[name].value;
+    }
+  }
+  TypeConstructor.PROTOTYPE = Context.create<TauType>(types);
+  ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
+    ValueContext.create<ValueInterface>(values),
+  );
+}
+
 function method0<Arg0 extends ValueInterface>(
   arg0: { INSTANCE: TauType },
   result: { INSTANCE: TauType },
@@ -69,6 +92,22 @@ function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
     Closure.wrap(fn),
   );
 }
+
+function method10<Arg0 extends ValueInterface>(
+  arg0: { new (var0: TauType): TauType; PROTOTYPE: Context<TauType> },
+  result: { INSTANCE: TauType },
+  fn: (arg0: Arg0) => ValueInterface,
+): TypedTerm {
+  return new TypedTerm(
+    new LambdaType(new arg0(VariableType.getNew()), result.INSTANCE),
+    Closure.wrap(fn),
+  );
+}
+
+defineUnboundPrototype(ListType, ListValue, {
+  length: method10(ListType, NaturalType, (value: ListValue) => new NaturalValue(value.count)),
+  // TODO
+});
 
 definePrototype(BooleanType, BooleanValue, {
   str: method0(BooleanType, StringType, (value: BooleanValue) => new StringValue(value.toString())),

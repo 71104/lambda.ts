@@ -275,7 +275,7 @@ export class ObjectType extends IotaType {
 
   public readonly fields: Context<TauType>;
 
-  private static _bindField(parent: IotaType, field: TauType): TauType {
+  private static _bindField(parent: TauType, field: TauType): TauType {
     const result = field.bindThis(parent, EMPTY_SUBSTITUTION);
     if (result) {
       return result.type.substitute(result.substitution);
@@ -284,14 +284,14 @@ export class ObjectType extends IotaType {
     }
   }
 
-  private static _bindFields(parent: IotaType, fields: Context<TauType>): Context<TauType> {
+  private static _bindFields(parent: TauType, fields: Context<TauType>): Context<TauType> {
     return fields.map((_name, field) => ObjectType._bindField(parent, field));
   }
 
   private constructor(
     baseFields: Context<TauType> | null,
     fields: Context<TauType>,
-    parent?: IotaType,
+    parent?: TauType,
   ) {
     super();
     const boundFields = ObjectType._bindFields(parent || this, fields);
@@ -307,13 +307,13 @@ export class ObjectType extends IotaType {
   }
 
   public static createPrototype(
-    parent: IotaType,
+    parent: TauType,
     fields: Context<TauType> = Context.create<TauType>(),
   ): ObjectType {
     return new ObjectType(null, fields, parent);
   }
 
-  public extend(fields: { [name: string]: TauType }, parent?: IotaType): ObjectType {
+  public extend(fields: { [name: string]: TauType }, parent?: TauType): ObjectType {
     return new ObjectType(this.fields, Context.create<TauType>(fields), parent);
   }
 
@@ -345,8 +345,13 @@ export class ObjectType extends IotaType {
 }
 
 export class ListType extends TauType {
+  public static readonly PROTOTYPE: Context<TauType> = Context.create<TauType>();
+
+  public readonly prototype: ObjectType;
+
   public constructor(public readonly inner: TauType) {
     super();
+    this.prototype = ObjectType.createPrototype(this, ListType.PROTOTYPE);
   }
 
   public toString(): string {
@@ -368,6 +373,14 @@ export class ListType extends TauType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return other.fields.reduce((substitution, name, field) => {
+        if (this.prototype.fields.has(name)) {
+          return this.prototype.fields.top(name).leq(field, substitution);
+        } else {
+          return null;
+        }
+      }, substitution);
     } else if (other instanceof ListType) {
       return this.inner.leq(other.inner, substitution);
     } else if (other instanceof VariableType) {
