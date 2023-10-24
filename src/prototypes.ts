@@ -1,4 +1,5 @@
 import { Context } from './context.js';
+import { RuntimeError } from './errors.js';
 import {
   BooleanType,
   ComplexType,
@@ -73,9 +74,13 @@ function defineUnboundPrototype(
   );
 }
 
-type TypeName = 'boolean' | 'complex' | 'real' | 'rational' | 'integer' | 'natural' | 'string';
+type IotaTypeName = 'boolean' | 'complex' | 'real' | 'rational' | 'integer' | 'natural' | 'string';
 
-const typeConstructors = {
+interface IotaTypeConstructor {
+  INSTANCE: IotaType;
+}
+
+const typeConstructors: { [name in IotaTypeName]: IotaTypeConstructor } = {
   boolean: BooleanType,
   complex: ComplexType,
   real: RealType,
@@ -86,8 +91,8 @@ const typeConstructors = {
 };
 
 function method0<Arg0 extends ValueInterface>(
-  arg0: TypeName,
-  result: TypeName,
+  arg0: IotaTypeName,
+  result: IotaTypeName,
   fn: (arg0: Arg0) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
@@ -97,9 +102,9 @@ function method0<Arg0 extends ValueInterface>(
 }
 
 function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
-  arg0: TypeName,
-  arg1: TypeName,
-  result: TypeName,
+  arg0: IotaTypeName,
+  arg1: IotaTypeName,
+  result: IotaTypeName,
   fn: (arg0: Arg0, arg1: Arg1) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
@@ -111,8 +116,22 @@ function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
   );
 }
 
-function listMethod<Arg0 extends ValueInterface>(
-  result: TypeName,
+interface SemiTypedTerm0<Arg0 extends ValueInterface> {
+  result: TauType;
+  value: (arg0: Arg0) => ValueInterface;
+}
+
+function getVar0<Arg0 extends ValueInterface>(
+  callback: (inner: VariableType, list: ListType) => SemiTypedTerm0<Arg0>,
+): TypedTerm {
+  const inner = VariableType.getNew();
+  const list = new ListType(inner);
+  const { result, value } = callback(inner, list);
+  return new TypedTerm(new LambdaType(list, result), Closure.wrap(value));
+}
+
+function listMethod0<Arg0 extends ValueInterface>(
+  result: IotaTypeName,
   fn: (arg0: Arg0) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
@@ -122,7 +141,28 @@ function listMethod<Arg0 extends ValueInterface>(
 }
 
 defineUnboundPrototype(ListType, ListValue, {
-  length: listMethod('natural', (value: ListValue) => new NaturalValue(value.count)),
+  length: listMethod0('natural', (value: ListValue) => new NaturalValue(value.count)),
+  empty: listMethod0('boolean', (value: ListValue) => new BooleanValue(!value.count)),
+  head: getVar0(inner => ({
+    result: inner,
+    value: (list: ListValue) => {
+      if (list.count > 0) {
+        return list.elements[list.offset];
+      } else {
+        throw new RuntimeError('');
+      }
+    },
+  })),
+  tail: getVar0((_inner, list) => ({
+    result: list,
+    value: (list: ListValue) => {
+      if (list.count > 0) {
+        return new ListValue(list.elements, list.offset + 1, list.count - 1);
+      } else {
+        return new ListValue(list.elements, list.offset, 0);
+      }
+    },
+  })),
   // TODO
 });
 
