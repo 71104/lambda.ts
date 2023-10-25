@@ -160,7 +160,11 @@ export class ListValue implements ValueInterface {
   }
 
   public toString(): string {
-    return `[${this.elements.map(element => element.toString()).join(', ')}]`;
+    const strings = [];
+    for (let i = 0; i < this.count; i++) {
+      strings.push(this.elements[this.offset + i].toString());
+    }
+    return `[${strings.join(', ')}]`;
   }
 
   public bindThis(): ValueInterface {

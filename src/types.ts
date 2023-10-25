@@ -325,41 +325,33 @@ export class Prototype {
 
   public constructor(public readonly context: TypeContext) {}
 
-  private _bindField(parent: TauType, name: string, substitution: Substitution): TypeResults {
+  private _bindField(
+    parent: TauType,
+    name: string,
+    substitution: Substitution,
+  ): TypeResults | null {
     const field = this.context.top(name).instantiate();
     const variable = VariableType.getNew();
     const result = field.leq(new LambdaType(parent, variable), substitution);
     if (result) {
       return new TypeResults(result, variable.substitute(result));
     } else {
-      throw new TypeError(
-        `cannot bind type '${parent.toString()}' to its field ${JSON.stringify(
-          name,
-        )} of type '${field.toString()}'`,
-      );
+      return null;
     }
   }
 
   public leq(parent: TauType, other: ObjectType, substitution: Substitution): Substitution | null {
     return other.fields.reduce((substitution, name, field) => {
       if (!this.context.has(name)) {
-        throw new TypeError(
-          `cannot unify '${parent.toString()}' and '${other.toString()}': unknown field ${JSON.stringify(
-            name,
-          )}`,
-        );
+        return null;
       }
       const bound = this._bindField(parent, name, substitution);
-      return bound.type.leq(field, bound.substitution);
+      if (bound) {
+        return bound.type.leq(field, bound.substitution);
+      } else {
+        return null;
+      }
     }, substitution);
-  }
-
-  public getField(parent: TauType, name: string, substitution: Substitution): TypeResults {
-    if (this.context.has(name)) {
-      return this._bindField(parent, name, substitution);
-    } else {
-      throw new TypeError(`undefined field ${name}`);
-    }
   }
 }
 
