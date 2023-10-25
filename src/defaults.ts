@@ -1,4 +1,3 @@
-import { Context } from './context.js';
 import { RuntimeError } from './errors.js';
 import {
   BooleanType,
@@ -8,11 +7,13 @@ import {
   LambdaType,
   ListType,
   NaturalType,
-  ObjectType,
+  Prototype,
   RationalType,
   RealType,
   StringType,
   TauType,
+  TypeContext,
+  TypeScheme,
   VariableType,
 } from './types.js';
 import {
@@ -31,17 +32,17 @@ import {
 
 class TypedTerm {
   public constructor(
-    public readonly type: TauType,
+    public readonly type: TypeScheme,
     public readonly value: ValueInterface,
   ) {}
 }
 
 function definePrototype(
-  TypeConstructor: { INSTANCE: IotaType; PROTOTYPE: ObjectType },
+  TypeConstructor: { INSTANCE: IotaType; PROTOTYPE: Prototype },
   ValueConstructor: { PROTOTYPE: ValueContext },
   terms: { [name: string]: TypedTerm },
 ): void {
-  const types: { [name: string]: TauType } = Object.create(null);
+  const types: { [name: string]: TypeScheme } = Object.create(null);
   const values: { [name: string]: ValueInterface } = Object.create(null);
   for (const name in terms) {
     if (Object.prototype.hasOwnProperty.call(terms, name)) {
@@ -49,18 +50,18 @@ function definePrototype(
       values[name] = terms[name].value;
     }
   }
-  TypeConstructor.PROTOTYPE = TypeConstructor.PROTOTYPE.extend(types, TypeConstructor.INSTANCE);
+  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create<TypeScheme>(types));
   ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
     ValueContext.create<ValueInterface>(values),
   );
 }
 
 function defineUnboundPrototype(
-  TypeConstructor: { PROTOTYPE: Context<TauType> },
+  TypeConstructor: { PROTOTYPE: Prototype },
   ValueConstructor: { PROTOTYPE: ValueContext },
   terms: { [name: string]: TypedTerm },
 ): void {
-  const types: { [name: string]: TauType } = Object.create(null);
+  const types: { [name: string]: TypeScheme } = Object.create(null);
   const values: { [name: string]: ValueInterface } = Object.create(null);
   for (const name in terms) {
     if (Object.prototype.hasOwnProperty.call(terms, name)) {
@@ -68,7 +69,7 @@ function defineUnboundPrototype(
       values[name] = terms[name].value;
     }
   }
-  TypeConstructor.PROTOTYPE = Context.create<TauType>(types);
+  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create<TypeScheme>(types));
   ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
     ValueContext.create<ValueInterface>(values),
   );
@@ -96,7 +97,7 @@ function method0<Arg0 extends ValueInterface>(
   fn: (arg0: Arg0) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
-    new LambdaType(typeConstructors[arg0].INSTANCE, typeConstructors[result].INSTANCE),
+    new LambdaType(typeConstructors[arg0].INSTANCE, typeConstructors[result].INSTANCE).close(),
     Closure.wrap(fn),
   );
 }
@@ -111,7 +112,7 @@ function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
     new LambdaType(
       typeConstructors[arg0].INSTANCE,
       new LambdaType(typeConstructors[arg1].INSTANCE, typeConstructors[result].INSTANCE),
-    ),
+    ).close(),
     Closure.wrap(fn),
   );
 }
@@ -127,7 +128,7 @@ function getVar0<Arg0 extends ValueInterface>(
   const inner = VariableType.getNew();
   const list = new ListType(inner);
   const { result, value } = callback(inner, list);
-  return new TypedTerm(new LambdaType(list, result), Closure.wrap(value));
+  return new TypedTerm(new LambdaType(list, result).close(), Closure.wrap(value));
 }
 
 function listMethod0<Arg0 extends ValueInterface>(
@@ -135,7 +136,7 @@ function listMethod0<Arg0 extends ValueInterface>(
   fn: (arg0: Arg0) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
-    new LambdaType(new ListType(VariableType.getNew()), typeConstructors[result].INSTANCE),
+    new LambdaType(new ListType(VariableType.getNew()), typeConstructors[result].INSTANCE).close(),
     Closure.wrap(fn),
   );
 }

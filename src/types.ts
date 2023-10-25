@@ -271,7 +271,7 @@ export class NullType extends IotaType {
 }
 
 export class ObjectType extends IotaType {
-  public static readonly EMPTY = ObjectType.create(Context.create<TauType>());
+  public static readonly EMPTY = new ObjectType(Context.create<TauType>());
 
   public readonly fields: Context<TauType>;
 
@@ -288,33 +288,9 @@ export class ObjectType extends IotaType {
     return fields.map((_name, field) => ObjectType._bindField(parent, field));
   }
 
-  private constructor(
-    baseFields: Context<TauType> | null,
-    fields: Context<TauType>,
-    parent?: TauType,
-  ) {
+  public constructor(fields: Context<TauType>) {
     super();
-    const boundFields = ObjectType._bindFields(parent || this, fields);
-    if (baseFields) {
-      this.fields = ObjectType._bindFields(parent || this, baseFields).add(boundFields);
-    } else {
-      this.fields = boundFields;
-    }
-  }
-
-  public static create(fields: Context<TauType>): ObjectType {
-    return new ObjectType(null, fields);
-  }
-
-  public static createPrototype(
-    parent: TauType,
-    fields: Context<TauType> = Context.create<TauType>(),
-  ): ObjectType {
-    return new ObjectType(null, fields, parent);
-  }
-
-  public extend(fields: { [name: string]: TauType }, parent?: TauType): ObjectType {
-    return new ObjectType(this.fields, Context.create<TauType>(fields), parent);
+    this.fields = ObjectType._bindFields(this, fields);
   }
 
   public toString(): string {
@@ -344,14 +320,54 @@ export class ObjectType extends IotaType {
   }
 }
 
-export class ListType extends TauType {
-  public static readonly PROTOTYPE: Context<TauType> = Context.create<TauType>();
+export class Prototype {
+  public static readonly EMPTY = new Prototype(EMPTY_TYPE_CONTEXT);
 
-  public readonly prototype: ObjectType;
+  public constructor(public readonly context: TypeContext) {}
+
+  private _bindField(parent: TauType, name: string, substitution: Substitution): TypeResults {
+    const field = this.context.top(name).instantiate();
+    const variable = VariableType.getNew();
+    const result = field.leq(new LambdaType(parent, variable), substitution);
+    if (result) {
+      return new TypeResults(result, variable.substitute(result));
+    } else {
+      throw new TypeError(
+        `cannot bind type '${parent.toString()}' to its field ${JSON.stringify(
+          name,
+        )} of type '${field.toString()}'`,
+      );
+    }
+  }
+
+  public leq(parent: TauType, other: ObjectType, substitution: Substitution): Substitution | null {
+    return other.fields.reduce((substitution, name, field) => {
+      if (!this.context.has(name)) {
+        throw new TypeError(
+          `cannot unify '${parent.toString()}' and '${other.toString()}': unknown field ${JSON.stringify(
+            name,
+          )}`,
+        );
+      }
+      const bound = this._bindField(parent, name, substitution);
+      return bound.type.leq(field, bound.substitution);
+    }, substitution);
+  }
+
+  public getField(parent: TauType, name: string, substitution: Substitution): TypeResults {
+    if (this.context.has(name)) {
+      return this._bindField(parent, name, substitution);
+    } else {
+      throw new TypeError(`undefined field ${name}`);
+    }
+  }
+}
+
+export class ListType extends TauType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
 
   public constructor(public readonly inner: TauType) {
     super();
-    this.prototype = ObjectType.createPrototype(this, ListType.PROTOTYPE);
   }
 
   public toString(): string {
@@ -374,13 +390,7 @@ export class ListType extends TauType {
     if (other instanceof UndefinedType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return other.fields.reduce((substitution, name, field) => {
-        if (this.prototype.fields.has(name)) {
-          return this.prototype.fields.top(name).leq(field, substitution);
-        } else {
-          return null;
-        }
-      }, substitution);
+      return ListType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof ListType) {
       return this.inner.leq(other.inner, substitution);
     } else if (other instanceof VariableType) {
@@ -396,8 +406,8 @@ export class ListType extends TauType {
 }
 
 export class BooleanType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new BooleanType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(BooleanType.INSTANCE);
 
   private constructor() {
     super();
@@ -411,7 +421,7 @@ export class BooleanType extends IotaType {
     if (other instanceof UndefinedType || other instanceof BooleanType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(other, substitution);
+      return BooleanType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -425,8 +435,8 @@ export class BooleanType extends IotaType {
 }
 
 export class ComplexType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new ComplexType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(ComplexType.INSTANCE);
 
   private constructor() {
     super();
@@ -440,7 +450,7 @@ export class ComplexType extends IotaType {
     if (other instanceof UndefinedType || other instanceof ComplexType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return ComplexType.PROTOTYPE.leq(other, substitution);
+      return ComplexType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -454,8 +464,8 @@ export class ComplexType extends IotaType {
 }
 
 export class RealType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new RealType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(RealType.INSTANCE);
 
   private constructor() {
     super();
@@ -473,7 +483,7 @@ export class RealType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return RealType.PROTOTYPE.leq(other, substitution);
+      return RealType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -487,8 +497,8 @@ export class RealType extends IotaType {
 }
 
 export class RationalType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new RationalType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(RationalType.INSTANCE);
 
   private constructor() {
     super();
@@ -507,7 +517,7 @@ export class RationalType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return RationalType.PROTOTYPE.leq(other, substitution);
+      return RationalType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -521,8 +531,8 @@ export class RationalType extends IotaType {
 }
 
 export class IntegerType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new IntegerType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(IntegerType.INSTANCE);
 
   private constructor() {
     super();
@@ -542,7 +552,7 @@ export class IntegerType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return IntegerType.PROTOTYPE.leq(other, substitution);
+      return IntegerType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -556,8 +566,8 @@ export class IntegerType extends IotaType {
 }
 
 export class NaturalType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new NaturalType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(NaturalType.INSTANCE);
 
   private constructor() {
     super();
@@ -578,7 +588,7 @@ export class NaturalType extends IotaType {
     ) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return NaturalType.PROTOTYPE.leq(other, substitution);
+      return NaturalType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
@@ -592,8 +602,8 @@ export class NaturalType extends IotaType {
 }
 
 export class StringType extends IotaType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new StringType();
-  public static readonly PROTOTYPE = ObjectType.createPrototype(StringType.INSTANCE);
 
   private constructor() {
     super();
@@ -607,7 +617,7 @@ export class StringType extends IotaType {
     if (other instanceof UndefinedType || other instanceof StringType) {
       return substitution;
     } else if (other instanceof ObjectType) {
-      return StringType.PROTOTYPE.leq(other, substitution);
+      return StringType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof VariableType) {
       if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
