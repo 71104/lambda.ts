@@ -318,8 +318,4 @@ export class Parser {
   public parse(): NodeInterface {
     return this._parseRoot(['end']);
   }
-
-  public resetVariableGenerator(): void {
-    VariableType.resetNextId();
-  }
 }

@@ -133,10 +133,6 @@ export const EMPTY_TYPE_CONTEXT = TypeContext.create<TypeScheme>();
 export class VariableType extends TauType {
   private static _next_id = 0;
 
-  public static resetNextId(): void {
-    VariableType._next_id = 0;
-  }
-
   public constructor(public readonly name: string) {
     super();
   }
