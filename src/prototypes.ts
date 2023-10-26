@@ -125,12 +125,16 @@ interface SemiTypedTerm0<Arg0 extends ValueInterface> {
   value: (arg0: Arg0) => ValueInterface;
 }
 
+function newVar<Result>(fn: (variable: VariableType) => Result): Result {
+  return fn(VariableType.getNew());
+}
+
 function getVar0<Arg0 extends ValueInterface>(
-  callback: (inner: VariableType, list: ListType) => SemiTypedTerm0<Arg0>,
+  fn: (inner: VariableType, list: ListType) => SemiTypedTerm0<Arg0>,
 ): TypedTerm {
   const inner = VariableType.getNew();
   const list = new ListType(inner);
-  const { result, value } = callback(inner, list);
+  const { result, value } = fn(inner, list);
   return new TypedTerm(new LambdaType(list, result).close(), Closure.wrap(value));
 }
 
@@ -195,18 +199,28 @@ defineUnboundPrototype(ListType, ListValue, {
       }
     },
   })),
-  map: listMethod(
-    new LambdaNode(
-      '$1', // list
-      null,
+  map: newVar(input =>
+    listMethod(
       new LambdaNode(
-        '$2', // callback
-        null,
-        new SemiNativeNode((list: ValueInterface, callback: ValueInterface) => {
-          const closure = callback.cast(Closure);
-          const elements = [...list.cast(ListValue).items()].map(element => closure.apply(element));
-          return new ListValue(elements, 0, elements.length);
-        }),
+        '$1', // list
+        new ListType(input),
+        newVar(
+          output =>
+            new LambdaNode(
+              '$2', // callback
+              new LambdaType(input, output),
+              new SemiNativeNode(
+                new ListType(output),
+                (list: ValueInterface, callback: ValueInterface) => {
+                  const closure = callback.cast(Closure);
+                  const elements = [...list.cast(ListValue).items()].map(element =>
+                    closure.apply(element),
+                  );
+                  return new ListValue(elements, 0, elements.length);
+                },
+              ),
+            ),
+        ),
       ),
     ),
   ),

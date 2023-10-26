@@ -1,6 +1,7 @@
 import { LambdaNode, NativeNode, NodeInterface, SemiNativeNode } from './ast.js';
 import { Context } from './context.js';
 import { InternalError, RuntimeError } from './errors.js';
+import { UnknownType } from './types.js';
 
 export type ValueConstructor<ValueType extends ValueInterface> =
   | (new (...args: never[]) => ValueType)
@@ -619,7 +620,7 @@ export class Closure implements ValueInterface {
     let node = new LambdaNode(
       '$' + arity,
       null,
-      new SemiNativeNode(fn as (...args: ValueInterface[]) => ValueInterface),
+      new SemiNativeNode(UnknownType.INSTANCE, fn as (...args: ValueInterface[]) => ValueInterface),
     );
     for (let i = arity - 1; i > 0; i--) {
       node = new LambdaNode('$' + i, null, node);

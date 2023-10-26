@@ -231,7 +231,10 @@ export class SemiNativeNode implements NodeInterface {
     }
   }
 
-  public constructor(public readonly fn: (...args: ValueInterface[]) => ValueInterface) {
+  public constructor(
+    public readonly type: TauType,
+    public readonly fn: (...args: ValueInterface[]) => ValueInterface,
+  ) {
     this._arity = fn.length;
   }
 
@@ -240,7 +243,7 @@ export class SemiNativeNode implements NodeInterface {
   }
 
   public getType(): TypeResults {
-    return new TypeResults(EMPTY_SUBSTITUTION, UnknownType.INSTANCE);
+    return new TypeResults(EMPTY_SUBSTITUTION, this.type);
   }
 
   public evaluate(context: ValueContext): ValueInterface {

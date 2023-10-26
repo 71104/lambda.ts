@@ -37,7 +37,7 @@ import {
   UndefinedValue,
 } from './values.js';
 
-import './defaults.js';
+import './prototypes.js';
 
 function unescapeString(input: string): string {
   return input
