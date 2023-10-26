@@ -66,6 +66,10 @@ export abstract class TauType {
       return new TypeScheme([...this.getFreeVariables()], this);
     }
   }
+
+  public closeAndRename(): TypeScheme {
+    return this.close().rename();
+  }
 }
 
 export type Substitution = Context<TauType>;
@@ -123,6 +127,17 @@ export class TypeScheme {
 
   public substitute(substitution: Substitution): TypeScheme {
     return new TypeScheme(this.names, this.type.substitute(substitution.remove(...this.names)));
+  }
+
+  public rename(): TypeScheme {
+    const hash: { [name: string]: TauType } = Object.create(null);
+    this.names.forEach((name, index) => {
+      hash[name] = new VariableType(`$${index + 1}`);
+    });
+    return new TypeScheme(
+      this.names.map((_name: string, index: number) => `$${index + 1}`),
+      this.type.substitute(Substitution.create<TauType>(hash)),
+    );
   }
 }
 

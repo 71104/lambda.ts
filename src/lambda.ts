@@ -15,5 +15,5 @@ export function evaluate(input: string): [TypeScheme, ValueInterface] {
   const ast = parser.parse();
   const { substitution, type } = ast.getType(GLOBAL_TYPE_CONTEXT);
   const value = ast.evaluate(GLOBAL_VALUE_CONTEXT);
-  return [type.substitute(substitution).close(), value];
+  return [type.substitute(substitution).closeAndRename(), value];
 }
