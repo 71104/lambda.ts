@@ -1,7 +1,9 @@
+import { LambdaNode, SemiNativeNode } from './ast.js';
 import { RuntimeError } from './errors.js';
 import {
   BooleanType,
   ComplexType,
+  EMPTY_TYPE_CONTEXT,
   IntegerType,
   IotaType,
   LambdaType,
@@ -20,6 +22,7 @@ import {
   BooleanValue,
   Closure,
   ComplexValue,
+  EMPTY_VALUE_CONTEXT,
   IntegerValue,
   ListValue,
   NaturalValue,
@@ -131,19 +134,47 @@ function getVar0<Arg0 extends ValueInterface>(
   return new TypedTerm(new LambdaType(list, result).close(), Closure.wrap(value));
 }
 
-function listMethod0<Arg0 extends ValueInterface>(
-  result: IotaTypeName,
-  fn: (arg0: Arg0) => ValueInterface,
-): TypedTerm {
+function listMethod0(result: IotaTypeName, fn: (list: ListValue) => ValueInterface): TypedTerm {
   return new TypedTerm(
     new LambdaType(new ListType(VariableType.getNew()), typeConstructors[result].INSTANCE).close(),
     Closure.wrap(fn),
   );
 }
 
+function listMethod1<Arg1 extends ValueInterface>(
+  arg1: IotaTypeName,
+  result: IotaTypeName,
+  fn: (list: ListValue, arg1: Arg1) => ValueInterface,
+): TypedTerm {
+  return new TypedTerm(
+    new LambdaType(
+      new ListType(VariableType.getNew()),
+      new LambdaType(typeConstructors[arg1].INSTANCE, typeConstructors[result].INSTANCE),
+    ).close(),
+    Closure.wrap(fn),
+  );
+}
+
+function listMethod(ast: LambdaNode): TypedTerm {
+  const { substitution, type } = ast.getType(EMPTY_TYPE_CONTEXT);
+  return new TypedTerm(type.substitute(substitution).close(), ast.evaluate(EMPTY_VALUE_CONTEXT));
+}
+
 defineUnboundPrototype(ListType, ListValue, {
   length: listMethod0('natural', (value: ListValue) => new NaturalValue(value.count)),
   empty: listMethod0('boolean', (value: ListValue) => new BooleanValue(!value.count)),
+  str: listMethod0('string', (value: ListValue) => new StringValue(value.toString())),
+  join: listMethod1(
+    'string',
+    'string',
+    (value: ListValue, separator: ValueInterface) =>
+      // TODO: use the `.str` field rather than the native `toString()` method.
+      new StringValue(
+        [...value.items()]
+          .map(element => element.toString())
+          .join(separator.cast(StringValue).value),
+      ),
+  ),
   head: getVar0(inner => ({
     result: inner,
     value: (list: ListValue) => {
@@ -164,6 +195,21 @@ defineUnboundPrototype(ListType, ListValue, {
       }
     },
   })),
+  map: listMethod(
+    new LambdaNode(
+      '$1', // list
+      null,
+      new LambdaNode(
+        '$2', // callback
+        null,
+        new SemiNativeNode((list: ValueInterface, callback: ValueInterface) => {
+          const closure = callback.cast(Closure);
+          const elements = [...list.cast(ListValue).items()].map(element => closure.apply(element));
+          return new ListValue(elements, 0, elements.length);
+        }),
+      ),
+    ),
+  ),
   // TODO
 });
 
@@ -473,15 +519,15 @@ definePrototype(StringType, StringValue, {
     'string',
     'string',
     'boolean',
-    (value: StringValue, prefix: StringValue) =>
-      new BooleanValue(value.value.startsWith(prefix.value)),
+    (value: StringValue, prefix: ValueInterface) =>
+      new BooleanValue(value.value.startsWith(prefix.cast(StringValue).value)),
   ),
   endsWith: method1(
     'string',
     'string',
     'boolean',
-    (value: StringValue, prefix: StringValue) =>
-      new BooleanValue(value.value.endsWith(prefix.value)),
+    (value: StringValue, prefix: ValueInterface) =>
+      new BooleanValue(value.value.endsWith(prefix.cast(StringValue).value)),
   ),
   trim: method0('string', 'string', (value: StringValue) => new StringValue(value.value.trim())),
   trimStart: method0(

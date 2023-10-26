@@ -2,8 +2,14 @@ import { LambdaNode, NativeNode, NodeInterface, SemiNativeNode } from './ast.js'
 import { Context } from './context.js';
 import { InternalError, RuntimeError } from './errors.js';
 
+export type ValueConstructor<ValueType extends ValueInterface> =
+  | (new (...args: never[]) => ValueType)
+  | { INSTANCE: ValueType };
+
 export interface ValueInterface {
   toString(): string;
+
+  cast<ValueType extends ValueInterface>(valueConstructor: ValueConstructor<ValueType>): ValueType;
 
   bindThis(thisValue: ValueInterface): ValueInterface;
 
@@ -54,6 +60,16 @@ export class UndefinedValue implements ValueInterface {
     return 'undefined';
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (UndefinedValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'undefined' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -76,6 +92,16 @@ export class NullValue implements ValueInterface {
     return 'null';
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (NullValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'null' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -96,6 +122,16 @@ export class ObjectValue implements ValueInterface {
 
   public toString(): string {
     return 'object';
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (ObjectValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'object' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -122,6 +158,16 @@ export class NativeObjectValue implements ValueInterface {
 
   public toString(): string {
     return this.value.toString();
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (NativeObjectValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'object' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -159,12 +205,24 @@ export class ListValue implements ValueInterface {
     }
   }
 
-  public toString(): string {
-    const strings = [];
+  public *items(): Generator<ValueInterface> {
     for (let i = 0; i < this.count; i++) {
-      strings.push(this.elements[this.offset + i].toString());
+      yield this.elements[this.offset + i];
     }
-    return `[${strings.join(', ')}]`;
+  }
+
+  public toString(): string {
+    return `[${[...this.items()].map(element => element.toString()).join(', ')}]`;
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (ListValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected list value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -197,6 +255,16 @@ export class BooleanValue implements ValueInterface {
 
   public toString(): string {
     return this.value ? 'true' : 'false';
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (BooleanValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'boolean' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -236,6 +304,16 @@ export class ComplexValue implements ValueInterface {
     }
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (ComplexValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'complex' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -265,6 +343,16 @@ export class RealValue implements ValueInterface {
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (RealValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'real' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -304,6 +392,16 @@ export class RationalValue implements ValueInterface {
     }
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (RationalValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'rational' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -333,6 +431,16 @@ export class IntegerValue implements ValueInterface {
 
   public toString(): string {
     return '' + this.value;
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (IntegerValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'integer' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -370,6 +478,16 @@ export class NaturalValue implements ValueInterface {
     return '' + this.value;
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (NaturalValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'natural' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -401,6 +519,16 @@ export class StringValue implements ValueInterface {
     return JSON.stringify(this.value);
   }
 
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (StringValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected 'string' value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
   public bindThis(): ValueInterface {
     return this;
   }
@@ -427,6 +555,16 @@ export class Closure implements ValueInterface {
 
   public toString(): string {
     return `closure`;
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (Closure as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected closure value`);
+    } else {
+      return this as unknown as ValueType;
+    }
   }
 
   public bindThis(thisValue: ValueInterface): ValueInterface {
