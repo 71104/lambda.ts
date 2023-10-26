@@ -224,6 +224,28 @@ defineUnboundPrototype(ListType, ListValue, {
       ),
     ),
   ),
+  filter: newVar(element =>
+    listMethod(
+      new LambdaNode(
+        '$1', // list
+        new ListType(element),
+        new LambdaNode(
+          '$2', // callback
+          new LambdaType(element, BooleanType.INSTANCE),
+          new SemiNativeNode(
+            new ListType(element),
+            (list: ValueInterface, callback: ValueInterface) => {
+              const closure = callback.cast(Closure);
+              const elements = [...list.cast(ListValue).elements()].filter(
+                element => closure.apply(element).cast(BooleanValue).value,
+              );
+              return new ListValue(elements, 0, elements.length);
+            },
+          ),
+        ),
+      ),
+    ),
+  ),
   // TODO
 });
 
