@@ -189,7 +189,7 @@ export class ListValue implements ValueInterface {
   public static readonly EMPTY = new ListValue([], 0, 0);
 
   public constructor(
-    public readonly elements: ValueInterface[],
+    public readonly array: ValueInterface[],
     public readonly offset: number,
     public readonly count: number,
   ) {
@@ -199,21 +199,21 @@ export class ListValue implements ValueInterface {
     if (count < 0) {
       throw new RuntimeError(`invalid list view count ${count}`);
     }
-    if (offset + count > elements.length) {
+    if (offset + count > array.length) {
       throw new RuntimeError(
-        `list view offset+count exceeds length (${offset}+${count}>${elements.length})`,
+        `list view offset+count exceeds length (${offset}+${count}>${array.length})`,
       );
     }
   }
 
-  public *items(): Generator<ValueInterface> {
+  public *elements(): Generator<ValueInterface> {
     for (let i = 0; i < this.count; i++) {
-      yield this.elements[this.offset + i];
+      yield this.array[this.offset + i];
     }
   }
 
   public toString(): string {
-    return `[${[...this.items()].map(element => element.toString()).join(', ')}]`;
+    return `[${[...this.elements()].map(element => element.toString()).join(', ')}]`;
   }
 
   public cast<ValueType extends ValueInterface>(
@@ -239,7 +239,7 @@ export class ListValue implements ValueInterface {
   }
 
   public marshal(): unknown[] {
-    return Array.from({ length: this.count }, (_, i) => this.elements[this.offset + i].marshal());
+    return Array.from({ length: this.count }, (_, i) => this.array[this.offset + i].marshal());
   }
 }
 
@@ -464,6 +464,7 @@ export class IntegerValue implements ValueInterface {
 export class NaturalValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly ZERO = new NaturalValue(0);
+  public static readonly ONE = new NaturalValue(1);
 
   public readonly value: number;
 

@@ -174,7 +174,7 @@ defineUnboundPrototype(ListType, ListValue, {
     (value: ListValue, separator: ValueInterface) =>
       // TODO: use the `.str` field rather than the native `toString()` method.
       new StringValue(
-        [...value.items()]
+        [...value.elements()]
           .map(element => element.toString())
           .join(separator.cast(StringValue).value),
       ),
@@ -183,7 +183,7 @@ defineUnboundPrototype(ListType, ListValue, {
     result: inner,
     value: (list: ListValue) => {
       if (list.count > 0) {
-        return list.elements[list.offset];
+        return list.array[list.offset];
       } else {
         throw new RuntimeError('');
       }
@@ -193,9 +193,9 @@ defineUnboundPrototype(ListType, ListValue, {
     result: list,
     value: (list: ListValue) => {
       if (list.count > 0) {
-        return new ListValue(list.elements, list.offset + 1, list.count - 1);
+        return new ListValue(list.array, list.offset + 1, list.count - 1);
       } else {
-        return new ListValue(list.elements, list.offset, 0);
+        return new ListValue(list.array, list.offset, 0);
       }
     },
   })),
@@ -213,7 +213,7 @@ defineUnboundPrototype(ListType, ListValue, {
                 new ListType(output),
                 (list: ValueInterface, callback: ValueInterface) => {
                   const closure = callback.cast(Closure);
-                  const elements = [...list.cast(ListValue).items()].map(element =>
+                  const elements = [...list.cast(ListValue).elements()].map(element =>
                     closure.apply(element),
                   );
                   return new ListValue(elements, 0, elements.length);
@@ -414,6 +414,16 @@ definePrototype(RationalType, RationalValue, {
     'real',
     (value: RationalValue) => new RealValue(Math.atanh(value.numerator / value.denominator)),
   ),
+  numerator: method0(
+    'rational',
+    'integer',
+    (value: RationalValue) => new IntegerValue(value.numerator),
+  ),
+  denominator: method0(
+    'rational',
+    'integer',
+    (value: RationalValue) => new IntegerValue(value.denominator),
+  ),
 });
 
 definePrototype(IntegerType, IntegerValue, {
@@ -469,6 +479,9 @@ definePrototype(IntegerType, IntegerValue, {
     'real',
     (value: IntegerValue) => new RealValue(Math.atanh(value.value)),
   ),
+  numerator: method0('rational', 'integer', (value: IntegerValue) => value),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  denominator: method0('rational', 'natural', (_value: IntegerValue) => NaturalValue.ONE),
 });
 
 definePrototype(NaturalType, NaturalValue, {
@@ -520,6 +533,9 @@ definePrototype(NaturalType, NaturalValue, {
     'real',
     (value: NaturalValue) => new RealValue(Math.atanh(value.value)),
   ),
+  numerator: method0('rational', 'natural', (value: NaturalValue) => value),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  denominator: method0('rational', 'natural', (_value: NaturalValue) => NaturalValue.ONE),
 });
 
 definePrototype(StringType, StringValue, {
