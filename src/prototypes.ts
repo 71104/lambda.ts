@@ -246,6 +246,50 @@ defineUnboundPrototype(ListType, ListValue, {
       ),
     ),
   ),
+  every: newVar(element =>
+    listMethod(
+      new LambdaNode(
+        '$1', // list
+        new ListType(element),
+        new LambdaNode(
+          '$2', // callback
+          new LambdaType(element, BooleanType.INSTANCE),
+          new SemiNativeNode(
+            BooleanType.INSTANCE,
+            (list: ValueInterface, callback: ValueInterface) => {
+              const closure = callback.cast(Closure);
+              const result = [...list.cast(ListValue).elements()].every(
+                element => closure.apply(element).cast(BooleanValue).value,
+              );
+              return result ? BooleanValue.TRUE : BooleanValue.FALSE;
+            },
+          ),
+        ),
+      ),
+    ),
+  ),
+  some: newVar(element =>
+    listMethod(
+      new LambdaNode(
+        '$1', // list
+        new ListType(element),
+        new LambdaNode(
+          '$2', // callback
+          new LambdaType(element, BooleanType.INSTANCE),
+          new SemiNativeNode(
+            BooleanType.INSTANCE,
+            (list: ValueInterface, callback: ValueInterface) => {
+              const closure = callback.cast(Closure);
+              const result = [...list.cast(ListValue).elements()].some(
+                element => closure.apply(element).cast(BooleanValue).value,
+              );
+              return result ? BooleanValue.TRUE : BooleanValue.FALSE;
+            },
+          ),
+        ),
+      ),
+    ),
+  ),
   // TODO
 });
 
