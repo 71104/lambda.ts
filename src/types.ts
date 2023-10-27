@@ -1,4 +1,5 @@
 import { Context } from './context.js';
+import { InternalError } from './errors.js';
 
 export abstract class TauType {
   public abstract toString(): string;
@@ -34,6 +35,11 @@ export abstract class TauType {
   public abstract bindThis(thisType: TauType, substitution: Substitution): TypeResults | null;
 
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
+
+  public simpleLeq(other: TauType): boolean {
+    const result = this.leq(other, EMPTY_SUBSTITUTION);
+    return !!result && result.isEmpty();
+  }
 
   public leqOrThrow(other: TauType, substitution: Substitution): Substitution {
     const result = this.leq(other, substitution);
@@ -197,6 +203,98 @@ export class VariableType extends TauType {
   }
 }
 
+export class UnionType extends TauType {
+  public readonly types: TauType[] = [];
+
+  public constructor(types: TauType[]) {
+    super();
+    if (types.length < 1) {
+      throw new InternalError('union types must have at least 2 types');
+    }
+    const flattened: TauType[] = [];
+    types.forEach(type => {
+      if (type instanceof UnionType) {
+        flattened.push(...type.types);
+      } else {
+        flattened.push(type);
+      }
+    });
+    const removed = flattened.map(() => false);
+    for (let i = 0; i < flattened.length - 1; i++) {
+      for (let j = i + 1; j < flattened.length; j++) {
+        if (flattened[i].simpleLeq(flattened[j])) {
+          removed[i] = true;
+        } else if (flattened[j].simpleLeq(flattened[i])) {
+          removed[j] = true;
+        }
+      }
+    }
+    for (let i = 0; i < flattened.length; i++) {
+      if (!removed[i]) {
+        this.types.push(flattened[i]);
+      }
+    }
+  }
+
+  public toString(): string {
+    return this.types.map(type => `(${type.toString()})`).join('|');
+  }
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.types.map(type => [...type.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public substitute(substitution: Substitution): UnionType {
+    return new UnionType(this.types.map(type => type.substitute(substitution)));
+  }
+
+  public bindThis(thisType: TauType, substitution: Substitution): TypeResults | null {
+    const types: TauType[] = [];
+    for (const type of this.types) {
+      const results = type.substitute(substitution).bindThis(thisType, substitution);
+      if (results) {
+        substitution = results.substitution;
+        types.push(results.type);
+      } else {
+        return null;
+      }
+    }
+    return new TypeResults(substitution, new UnionType(types));
+  }
+
+  public findCandidate(lesser: TauType, substitution: Substitution): Substitution | null {
+    const candidates = this.types
+      .map(type => lesser.leq(type, substitution))
+      .filter(candidate => candidate !== null);
+    if (candidates.length !== 1) {
+      return null;
+    } else {
+      return candidates[0];
+    }
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof VariableType) {
+      if (substitution.has(other.name)) {
+        return this.leq(substitution.top(other.name), substitution);
+      } else {
+        return substitution.push(other.name, this);
+      }
+    } else {
+      for (const type of this.types) {
+        const result = type.leq(other, substitution);
+        if (result) {
+          substitution = result;
+        } else {
+          return null;
+        }
+      }
+      return substitution;
+    }
+  }
+}
+
 export class UndefinedType extends IotaType {
   public static readonly INSTANCE = new UndefinedType();
 
@@ -217,6 +315,8 @@ export class UndefinedType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -249,6 +349,8 @@ export class UnknownType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return substitution;
     }
@@ -275,6 +377,8 @@ export class NullType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -325,6 +429,8 @@ export class ObjectType extends IotaType {
       } else {
         return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -402,6 +508,8 @@ export class ListType extends TauType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -431,6 +539,8 @@ export class BooleanType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -460,6 +570,8 @@ export class ComplexType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -493,6 +605,8 @@ export class RealType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -527,6 +641,8 @@ export class RationalType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -562,6 +678,8 @@ export class IntegerType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -598,6 +716,8 @@ export class NaturalType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -627,6 +747,8 @@ export class StringType extends IotaType {
       } else {
         return substitution.push(other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }
@@ -678,6 +800,8 @@ export class LambdaType extends TauType {
       } else {
         return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
+    } else if (other instanceof UnionType) {
+      return other.findCandidate(this, substitution);
     } else {
       return null;
     }

@@ -29,6 +29,7 @@ export type Token =
   | 'keyword:true'
   | 'keyword:undefined'
   | 'natural'
+  | 'pipe'
   | 'real'
   | 'string'
   | 'square-left'
@@ -92,6 +93,7 @@ export class Lexer {
     ['colon', /^:/],
     ['comma', /^,/],
     ['dollar', /^\$/],
+    ['pipe', /^\|/],
     ['square-left', /^\[/],
     ['square-right', /^\]/],
   ];

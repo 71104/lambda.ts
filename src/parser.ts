@@ -25,6 +25,7 @@ import {
   TauType,
   TypeScheme,
   UndefinedType,
+  UnionType,
   VariableType,
 } from './types.js';
 import {
@@ -100,12 +101,25 @@ export class Parser {
     }
   }
 
+  private _parseUnionType(): TauType {
+    const types = [this._parseType()];
+    while (this._lexer.token === 'pipe') {
+      this._lexer.next();
+      types.push(this._parseType());
+    }
+    if (types.length > 1) {
+      return new UnionType(types);
+    } else {
+      return types[0];
+    }
+  }
+
   private _parseOptionalType(): TauType | null {
     if ('colon' !== this._lexer.token) {
       return null;
     } else {
       this._lexer.next();
-      return this._parseType();
+      return this._parseUnionType();
     }
   }
 
