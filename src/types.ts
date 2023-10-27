@@ -397,27 +397,12 @@ export class Prototype {
 
   public constructor(public readonly context: TypeContext) {}
 
-  private _bindField(
-    parent: TauType,
-    name: string,
-    substitution: Substitution,
-  ): TypeResults | null {
-    const field = this.context.top(name).instantiate();
-    const variable = VariableType.getNew();
-    const result = field.leq(new LambdaType(parent, variable), substitution);
-    if (result) {
-      return new TypeResults(result, variable.substitute(result));
-    } else {
-      return null;
-    }
-  }
-
   public leq(parent: TauType, other: ObjectType, substitution: Substitution): Substitution | null {
     return other.fields.reduce((substitution, name, field) => {
       if (!this.context.has(name)) {
         return null;
       }
-      const bound = this._bindField(parent, name, substitution);
+      const bound = this.context.top(name).instantiate().bindThis(parent, substitution);
       if (bound) {
         return bound.type.leq(field, bound.substitution);
       } else {
@@ -663,6 +648,12 @@ export class StringType extends IotaType {
 }
 
 export class LambdaType extends TauType {
+  public static readonly PROTOTYPE = new Prototype(
+    TypeContext.create<TypeScheme>({
+      prototype: ObjectType.EMPTY.close(),
+    }),
+  );
+
   public constructor(
     public readonly left: TauType,
     public readonly right: TauType,
@@ -694,6 +685,8 @@ export class LambdaType extends TauType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType) {
       return substitution;
+    } else if (other instanceof ObjectType) {
+      return LambdaType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof LambdaType) {
       const leftResult = other.left.leq(this.left, substitution);
       if (leftResult) {

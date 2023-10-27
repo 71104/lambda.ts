@@ -549,6 +549,10 @@ export class StringValue implements ValueInterface {
 }
 
 export class Closure implements ValueInterface {
+  public static readonly PROTOTYPE = ValueContext.create<ValueInterface>({
+    prototype: ObjectValue.EMPTY,
+  });
+
   public constructor(
     public readonly context: ValueContext,
     public readonly name: string,
@@ -574,7 +578,11 @@ export class Closure implements ValueInterface {
   }
 
   public getField(name: string): ValueInterface {
-    throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of closure`);
+    if (Closure.PROTOTYPE.has(name)) {
+      return Closure.PROTOTYPE.top(name).bindThis(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of closure`);
+    }
   }
 
   public _getArgNames(): string[] {
