@@ -2,7 +2,10 @@ import { EMPTY_TYPE_CONTEXT, LambdaType, TypeScheme, VariableType } from './type
 import { Closure, EMPTY_VALUE_CONTEXT, ValueInterface } from './values.js';
 
 export const GLOBAL_TYPE_CONTEXT = EMPTY_TYPE_CONTEXT.pushAll({
-  pass: new TypeScheme(['x'], new LambdaType(new VariableType('x'), new VariableType('x'))),
+  pass: new TypeScheme(
+    ['x'],
+    VariableType.newVar(x => new LambdaType(x, x)),
+  ),
 });
 
 export const GLOBAL_VALUE_CONTEXT = EMPTY_VALUE_CONTEXT.pushAll({

@@ -25,7 +25,6 @@ import {
   TauType,
   TypeScheme,
   UndefinedType,
-  UnionType,
   VariableType,
 } from './types.js';
 import {
@@ -67,7 +66,7 @@ export class Parser {
         return type;
       }
       case 'identifier':
-        return new VariableType(this._lexer.step());
+        return VariableType.create(this._lexer.step());
       case 'keyword:boolean':
         this._lexer.next();
         return BooleanType.INSTANCE;
@@ -108,7 +107,7 @@ export class Parser {
       types.push(this._parseType());
     }
     if (types.length > 1) {
-      return new UnionType(types);
+      return VariableType.createUnion(types);
     } else {
       return types[0];
     }
