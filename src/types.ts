@@ -4,7 +4,7 @@ import { InternalError } from './errors.js';
 export abstract class TauType {
   public abstract toString(): string;
 
-  public abstract getFreeVariables(): Set<string>;
+  public abstract getFreeVariables(): Map<string, VariableType>;
 
   public abstract substitute(substitution: Substitution): TauType;
 
@@ -15,7 +15,7 @@ export abstract class TauType {
   ): Substitution | null {
     substitution = substitution.push(name, type);
     const visited = new Set<string>();
-    const visiting = [...type.getFreeVariables()];
+    const visiting = [...type.getFreeVariables().keys()];
     while (visiting.length > 0) {
       const current = visiting.pop()!;
       if (current === name) {
@@ -24,7 +24,7 @@ export abstract class TauType {
       if (!visited.has(current)) {
         visited.add(current);
         if (substitution.has(current)) {
-          const names = substitution.top(current).getFreeVariables();
+          const names = substitution.top(current).getFreeVariables().keys();
           visiting.push(...names);
         }
       }
@@ -65,11 +65,11 @@ export abstract class TauType {
   public close(context?: TypeContext): TypeScheme {
     if (context) {
       return new TypeScheme(
-        [...this.getFreeVariables()].filter(name => !context.has(name)),
+        [...this.getFreeVariables().keys()].filter(name => !context.has(name)),
         this,
       );
     } else {
-      return new TypeScheme([...this.getFreeVariables()], this);
+      return new TypeScheme([...this.getFreeVariables().keys()], this);
     }
   }
 
@@ -90,8 +90,8 @@ export class TypeResults {
 }
 
 export abstract class IotaType extends TauType {
-  public getFreeVariables(): Set<string> {
-    return new Set<string>();
+  public getFreeVariables(): Map<string, VariableType> {
+    return new Map<string, VariableType>();
   }
 
   public substitute(): IotaType {
@@ -118,12 +118,24 @@ export class TypeScheme {
   }
 
   public instantiate(): TauType {
-    const hash: { [name: string]: VariableType } = Object.create(null);
-    this.names.forEach(name => (hash[name] = VariableType.getNew()));
+    const variables = this.type.getFreeVariables();
+    const hash: { [name: string]: TauType } = Object.create(null);
+    this.names.forEach(name => {
+      if (variables.has(name)) {
+        const variable = variables.get(name)!;
+        if (variable.constraints) {
+          hash[name] = VariableType.createUnion(variable.constraints);
+        } else {
+          hash[name] = VariableType.getNew();
+        }
+      } else {
+        hash[name] = VariableType.getNew();
+      }
+    });
     return this.type.substitute(Substitution.create<TauType>(hash));
   }
 
-  public getFreeVariables(): Set<string> {
+  public getFreeVariables(): Map<string, VariableType> {
     const result = this.type.getFreeVariables();
     for (const name of this.names) {
       result.delete(name);
@@ -193,15 +205,15 @@ export class VariableType extends TauType {
       this.name = '#' + VariableType._next_id++;
     }
     if (constraints) {
-      if (constraints.length < 2) {
-        throw new InternalError('union types must have at least 2 types');
+      if (!constraints.length) {
+        throw new InternalError('cannot create union type with no types');
       }
       this.constraints = VariableType._optimizeConstraints(constraints);
     }
   }
 
   public static getNew(): VariableType {
-    return new VariableType('#' + VariableType._next_id++);
+    return new VariableType(null);
   }
 
   public static newVar<Result>(callback: (variable: VariableType) => Result): Result {
@@ -212,16 +224,23 @@ export class VariableType extends TauType {
     return new VariableType(name);
   }
 
-  public static createUnion(types: TauType[]): VariableType {
+  public static createUnion(types: TauType[]): TauType {
+    if (!types.length) {
+      throw new InternalError('cannot create union type with no types');
+    }
     return new VariableType(null, types);
   }
 
   public toString(): string {
-    return this.name;
+    if (this.constraints) {
+      return this.constraints.map(type => `(${type.toString()})`).join('|');
+    } else {
+      return this.name;
+    }
   }
 
-  public getFreeVariables(): Set<string> {
-    return new Set<string>([this.name]);
+  public getFreeVariables(): Map<string, VariableType> {
+    return new Map<string, VariableType>([[this.name, this]]);
   }
 
   public substitute(substitution: Substitution): TauType {
@@ -248,8 +267,18 @@ export class VariableType extends TauType {
         return substitution;
       } else if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
+      } else if (this.constraints) {
+        for (const type of this.constraints) {
+          const result = type.leq(other, substitution);
+          if (result) {
+            substitution = result;
+          } else {
+            return null;
+          }
+        }
+        return substitution;
       } else {
-        return TauType._substituteIfNoCycles(substitution, other.name, this);
+        return TauType._substituteIfNoCycles(substitution, this.name, other);
       }
     } else {
       return TauType._substituteIfNoCycles(substitution, this.name, other);
@@ -423,7 +452,7 @@ export class ListType extends TauType {
     return `(${this.inner.toString()})[]`;
   }
 
-  public getFreeVariables(): Set<string> {
+  public getFreeVariables(): Map<string, VariableType> {
     return this.inner.getFreeVariables();
   }
 
@@ -665,8 +694,11 @@ export class LambdaType extends TauType {
     return `fn (${this.left.toString()}) => (${this.right.toString()})`;
   }
 
-  public getFreeVariables(): Set<string> {
-    return new Set<string>([...this.left.getFreeVariables(), ...this.right.getFreeVariables()]);
+  public getFreeVariables(): Map<string, VariableType> {
+    return new Map<string, VariableType>([
+      ...this.left.getFreeVariables(),
+      ...this.right.getFreeVariables(),
+    ]);
   }
 
   public substitute(substitution: Substitution): TauType {
