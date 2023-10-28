@@ -4,8 +4,10 @@ import {
   BooleanType,
   ComplexType,
   EMPTY_TYPE_CONTEXT,
+  IOTA_TYPE_CONSTRUCTORS,
   IntegerType,
   IotaType,
+  IotaTypeName,
   LambdaType,
   ListType,
   NaturalType,
@@ -78,29 +80,16 @@ function defineUnboundPrototype(
   );
 }
 
-type IotaTypeName = 'boolean' | 'complex' | 'real' | 'rational' | 'integer' | 'natural' | 'string';
-
-interface IotaTypeConstructor {
-  INSTANCE: IotaType;
-}
-
-const typeConstructors: { [name in IotaTypeName]: IotaTypeConstructor } = {
-  boolean: BooleanType,
-  complex: ComplexType,
-  real: RealType,
-  rational: RationalType,
-  integer: IntegerType,
-  natural: NaturalType,
-  string: StringType,
-};
-
 function method0<Arg0 extends ValueInterface>(
   arg0: IotaTypeName,
   result: IotaTypeName,
   fn: (arg0: Arg0) => ValueInterface,
 ): TypedTerm {
   return new TypedTerm(
-    new LambdaType(typeConstructors[arg0].INSTANCE, typeConstructors[result].INSTANCE).close(),
+    new LambdaType(
+      IOTA_TYPE_CONSTRUCTORS[arg0].INSTANCE,
+      IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
+    ).close(),
     Closure.wrap(fn),
   );
 }
@@ -113,8 +102,11 @@ function method1<Arg0 extends ValueInterface, Arg1 extends ValueInterface>(
 ): TypedTerm {
   return new TypedTerm(
     new LambdaType(
-      typeConstructors[arg0].INSTANCE,
-      new LambdaType(typeConstructors[arg1].INSTANCE, typeConstructors[result].INSTANCE),
+      IOTA_TYPE_CONSTRUCTORS[arg0].INSTANCE,
+      new LambdaType(
+        IOTA_TYPE_CONSTRUCTORS[arg1].INSTANCE,
+        IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
+      ),
     ).close(),
     Closure.wrap(fn),
   );
@@ -140,7 +132,10 @@ function getVar0<Arg0 extends ValueInterface>(
 
 function listMethod0(result: IotaTypeName, fn: (list: ListValue) => ValueInterface): TypedTerm {
   return new TypedTerm(
-    new LambdaType(new ListType(VariableType.getNew()), typeConstructors[result].INSTANCE).close(),
+    new LambdaType(
+      new ListType(VariableType.getNew()),
+      IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
+    ).close(),
     Closure.wrap(fn),
   );
 }
@@ -153,7 +148,10 @@ function listMethod1<Arg1 extends ValueInterface>(
   return new TypedTerm(
     new LambdaType(
       new ListType(VariableType.getNew()),
-      new LambdaType(typeConstructors[arg1].INSTANCE, typeConstructors[result].INSTANCE),
+      new LambdaType(
+        IOTA_TYPE_CONSTRUCTORS[arg1].INSTANCE,
+        IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
+      ),
     ).close(),
     Closure.wrap(fn),
   );

@@ -7,6 +7,8 @@ export type ValueConstructor<ValueType extends ValueInterface> =
   | (new (...args: never[]) => ValueType)
   | { INSTANCE: ValueType };
 
+export type GenericValueConstructor = ValueConstructor<ValueInterface>;
+
 export interface ValueInterface {
   toString(): string;
 

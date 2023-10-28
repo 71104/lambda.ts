@@ -103,6 +103,19 @@ export abstract class IotaType extends TauType {
   }
 }
 
+export type IotaTypeName =
+  | 'boolean'
+  | 'complex'
+  | 'real'
+  | 'rational'
+  | 'integer'
+  | 'natural'
+  | 'string';
+
+export interface IotaTypeConstructor {
+  INSTANCE: IotaType;
+}
+
 export class TypeScheme {
   public constructor(
     public readonly names: string[],
@@ -733,3 +746,13 @@ export class LambdaType extends TauType {
     }
   }
 }
+
+export const IOTA_TYPE_CONSTRUCTORS: { [name in IotaTypeName]: IotaTypeConstructor } = {
+  boolean: BooleanType,
+  complex: ComplexType,
+  real: RealType,
+  rational: RationalType,
+  integer: IntegerType,
+  natural: NaturalType,
+  string: StringType,
+};
