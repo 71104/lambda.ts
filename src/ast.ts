@@ -173,11 +173,21 @@ export class VariableNode implements NodeInterface {
 }
 
 export class LambdaNode implements NodeInterface {
+  public readonly type: VariableType;
+
   public constructor(
     public readonly name: string,
-    public readonly type: TauType | null,
+    type: TauType | null,
     public readonly body: NodeInterface,
-  ) {}
+  ) {
+    if (!type) {
+      this.type = VariableType.getNew();
+    } else if (type instanceof VariableType) {
+      this.type = type;
+    } else {
+      this.type = VariableType.getNew([type]);
+    }
+  }
 
   public getFreeVariables(): Set<string> {
     const variables = this.body.getFreeVariables();
