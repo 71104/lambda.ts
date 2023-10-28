@@ -1,10 +1,29 @@
 import { Context } from './context.js';
 
+/**
+ * Represents a type with zero or more type variables in its structure, also known as a "tau type"
+ * in the original HMD paper[^1].
+ *
+ * [^1]: https://web.cs.wpi.edu/~cs4536/c12/milner-damas_principal_types.pdf
+ */
 export abstract class TauType {
   public abstract toString(): string;
 
+  /**
+   * Returns a map of all type variables in this type and its subtypes, indexed by variable name.
+   */
   public abstract getFreeVariables(): Map<string, VariableType>;
 
+  /**
+   * Substitutes type variables recursively. The returned `TauType` will no longer have any of the
+   * type variables whose names were in the substitution.
+   *
+   * WARNING: this method doesn't check the substituted types against possible constraints of their
+   * respective variables. The caller is responsible for checking before adding types into a
+   * `Substitution` object.
+   *
+   * @param substitution A mapping from the variables to substitute to their respective tau types.
+   */
   public abstract substitute(substitution: Substitution): TauType;
 
   protected static _substituteIfNoCycles(
@@ -33,13 +52,46 @@ export abstract class TauType {
 
   public abstract bindThis(thisType: TauType, substitution: Substitution): TypeResults | null;
 
+  /**
+   * Solves a type equation of the form "this less than or equal to other" by performing Robinson
+   * unification. "leq" stands for "less than or equal to", meaning that the left-hand side type is
+   * a subset of the right-hand side.
+   *
+   * If the equation is compatible the algorithm returns a `Substitution` object containing the
+   * requirements to satisfy it, otherwise it returns `null`. The new `Substitution` object will
+   * also include all preexisting requirements specified in the `substitution` argument.
+   *
+   * This algorithm is the core of the entire type system.
+   *
+   * @param other The right-hand side of the equation.
+   * @param substitution Preexisting requirements.
+   * @returns A `Substitution` containing all requirements (both new and preexisting) to satisfy
+   *  the equation; `null` if the equation is incompatible.
+   */
   public abstract leq(other: TauType, substitution: Substitution): Substitution | null;
 
+  /**
+   * Invokes `leq` using an empty `substitution` (i.e. no preexisting requirements) and returns a
+   * boolean indicating whether the equation is compatible.
+   *
+   * @param other The right-hand side of the type equation.
+   * @returns True iff the equation is compatible.
+   */
   public simpleLeq(other: TauType): boolean {
     const result = this.leq(other, EMPTY_SUBSTITUTION);
     return !!result && result.isEmpty();
   }
 
+  /**
+   * Like `leq`, but throws a `TypeError` instead of returning `null` if the equation is
+   * incompatible.
+   *
+   * @param other The right-hand side of the equation.
+   * @param substitution Preexisting requirements.
+   * @returns A `Substitution` containing all requirements (both new and preexisting) to satisfy
+   *  the equation.
+   * @throws A `TypeError` if the equation is incompatible.
+   */
   public leqOrThrow(other: TauType, substitution: Substitution): Substitution {
     const result = this.leq(other, substitution);
     if (result) {
@@ -81,6 +133,13 @@ export type Substitution = Context<TauType>;
 export const Substitution = Context<TauType>;
 export const EMPTY_SUBSTITUTION = Substitution.create<TauType>();
 
+/**
+ * Contains data returned by the typing algorithm (i.e. the `NodeInterface.getType` methods).
+ *
+ * The caller of the typing algorithm can safely assume that `substitution` has already been
+ * applied to `type`, therefore implementors must always perform the substitution before
+ * constructing the `TypeResults`.
+ */
 export class TypeResults {
   public constructor(
     public readonly substitution: Substitution,
@@ -88,6 +147,12 @@ export class TypeResults {
   ) {}
 }
 
+/**
+ * Represents a primitive type (e.g. numbers, strings, etc.), also known as a "iota type" in the
+ * original HMD paper[^1].
+ *
+ * [^1]: https://web.cs.wpi.edu/~cs4536/c12/milner-damas_principal_types.pdf
+ */
 export abstract class IotaType extends TauType {
   public getFreeVariables(): Map<string, VariableType> {
     return new Map<string, VariableType>();
@@ -115,6 +180,15 @@ export interface IotaTypeConstructor {
   INSTANCE: IotaType;
 }
 
+/**
+ * Represents a "type scheme" as defined in the original HMD paper[^1], that is a tau type with
+ * some bound variables. By contrast, all variables in tau types are free.
+ *
+ * A type scheme contains the list of bound variables and a tau type. Note that the tau type may
+ * contain extra variables that are not bound in this scheme.
+ *
+ * [^1]: https://web.cs.wpi.edu/~cs4536/c12/milner-damas_principal_types.pdf
+ */
 export class TypeScheme {
   public constructor(
     public readonly names: string[],
@@ -129,6 +203,15 @@ export class TypeScheme {
     }
   }
 
+  /**
+   * Instantiates this type scheme into a tau type by replacing all bound variables with new ones,
+   * maintaining their respective constraints.
+   *
+   * Replacing variables with new ones is a crucial element of algorithm W. Instantiation is
+   * performed every time the type of a program variable is read from the `TypeContext`.
+   *
+   * @returns The instantiated tau type.
+   */
   public instantiate(): TauType {
     const variables = this.type.getFreeVariables();
     const hash: { [name: string]: TauType } = Object.create(null);
@@ -143,6 +226,10 @@ export class TypeScheme {
     return this.type.substitute(Substitution.create<TauType>(hash));
   }
 
+  /**
+   * Returns the type variables that are still free in this scheme, i.e. the free variables of the
+   * wrapped tau type minus those bound by the scheme.
+   */
   public getFreeVariables(): Map<string, VariableType> {
     const result = this.type.getFreeVariables();
     for (const name of this.names) {
@@ -171,9 +258,24 @@ export type TypeContext = Context<TypeScheme>;
 export const TypeContext = Context<TypeScheme>;
 export const EMPTY_TYPE_CONTEXT = TypeContext.create<TypeScheme>();
 
+/**
+ * Represents a type variable.
+ *
+ * In Lambda, type variables may have one or more "constraints". Each constraint is a tau type and
+ * the variable may only be replaced by a type that's a subtype of at least one of the contraints.
+ * Constraints are used to implement Lambda's union types, e.g. `integer|string`.
+ */
 export class VariableType extends TauType {
   private static _next_id = 0;
 
+  /**
+   * Called at construction time to eliminate redundant constraints. For example, the union type
+   * `real|integer` is automatically converted into a single `real` constraint because `integer` is
+   * a subtype of `real`.
+   *
+   * @param constraints The constraints specified by the user at construction.
+   * @returns The optimized constraints.
+   */
   private static _optimizeConstraints(constraints: TauType[]): TauType[] {
     const flattened: TauType[] = [];
     constraints.forEach(type => {
@@ -205,6 +307,10 @@ export class VariableType extends TauType {
   public readonly name: string;
   public readonly constraints: TauType[];
 
+  /**
+   * Constructs a `VariableType` with the specified name and constraints. If the name is `null` a
+   * new unique name is automatically assigned.
+   */
   private constructor(name: string | null, constraints: TauType[] = []) {
     super();
     if (name !== null) {
@@ -215,14 +321,24 @@ export class VariableType extends TauType {
     this.constraints = VariableType._optimizeConstraints(constraints);
   }
 
+  /**
+   * Returns a new type variable with a new unique name and the specified constraints.
+   */
   public static getNew(constraints: TauType[] = []): VariableType {
     return new VariableType(null, constraints);
   }
 
+  /**
+   * Like `getNew`, but passes the newly generated variable to the specified callback rather than
+   * returning it directly. It then returns whatever value is returned by the callback.
+   */
   public static newVar<Result>(callback: (variable: VariableType) => Result): Result {
     return callback(VariableType.getNew());
   }
 
+  /**
+   * Creates a new named type variable with no constraints.
+   */
   public static create(name: string): VariableType {
     return new VariableType(name);
   }
