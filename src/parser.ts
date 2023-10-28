@@ -107,7 +107,7 @@ export class Parser {
       types.push(this._parseType());
     }
     if (types.length > 1) {
-      return VariableType.createUnion(types);
+      return VariableType.getNew(types);
     } else {
       return types[0];
     }

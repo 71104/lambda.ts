@@ -1,5 +1,4 @@
 import { Context } from './context.js';
-import { InternalError } from './errors.js';
 
 export abstract class TauType {
   public abstract toString(): string;
@@ -136,11 +135,7 @@ export class TypeScheme {
     this.names.forEach(name => {
       if (variables.has(name)) {
         const variable = variables.get(name)!;
-        if (variable.constraints) {
-          hash[name] = VariableType.createUnion(variable.constraints);
-        } else {
-          hash[name] = VariableType.getNew();
-        }
+        hash[name] = VariableType.getNew(variable.constraints);
       } else {
         hash[name] = VariableType.getNew();
       }
@@ -208,25 +203,20 @@ export class VariableType extends TauType {
   }
 
   public readonly name: string;
-  public readonly constraints: TauType[] | null = null;
+  public readonly constraints: TauType[];
 
-  private constructor(name: string | null, constraints: TauType[] | null = null) {
+  private constructor(name: string | null, constraints: TauType[] = []) {
     super();
     if (name !== null) {
       this.name = name;
     } else {
       this.name = '#' + VariableType._next_id++;
     }
-    if (constraints) {
-      if (!constraints.length) {
-        throw new InternalError('cannot create union type with no types');
-      }
-      this.constraints = VariableType._optimizeConstraints(constraints);
-    }
+    this.constraints = VariableType._optimizeConstraints(constraints);
   }
 
-  public static getNew(): VariableType {
-    return new VariableType(null);
+  public static getNew(constraints: TauType[] = []): VariableType {
+    return new VariableType(null, constraints);
   }
 
   public static newVar<Result>(callback: (variable: VariableType) => Result): Result {
@@ -237,15 +227,8 @@ export class VariableType extends TauType {
     return new VariableType(name);
   }
 
-  public static createUnion(types: TauType[]): TauType {
-    if (!types.length) {
-      throw new InternalError('cannot create union type with no types');
-    }
-    return new VariableType(null, types);
-  }
-
   public toString(): string {
-    if (this.constraints) {
+    if (this.constraints.length > 0) {
       return this.constraints.map(type => `(${type.toString()})`).join('|');
     } else {
       return this.name;
@@ -280,7 +263,7 @@ export class VariableType extends TauType {
         return substitution;
       } else if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
-      } else if (this.constraints) {
+      } else {
         for (const type of this.constraints) {
           const result = type.leq(other, substitution);
           if (result) {
@@ -289,9 +272,7 @@ export class VariableType extends TauType {
             return null;
           }
         }
-        return substitution;
-      } else {
-        return TauType._substituteIfNoCycles(substitution, this.name, other);
+        return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
     } else {
       return TauType._substituteIfNoCycles(substitution, this.name, other);
@@ -301,17 +282,17 @@ export class VariableType extends TauType {
   public geq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
       return other.leq(substitution.top(this.name), substitution);
-    } else if (this.constraints) {
+    } else if (this.constraints.length > 0) {
       const candidates = this.constraints
         .map(constraint => other.leq(constraint, substitution))
         .filter(candidate => !!candidate);
       if (candidates.length !== 1) {
         return null;
       } else {
-        return candidates[0]!.push(this.name, other);
+        return TauType._substituteIfNoCycles(candidates[0]!, this.name, other);
       }
     } else {
-      return substitution.push(this.name, other);
+      return TauType._substituteIfNoCycles(substitution, this.name, other);
     }
   }
 }
