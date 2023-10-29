@@ -21,6 +21,7 @@ export type Token =
   | 'keyword:integer'
   | 'keyword:let'
   | 'keyword:natural'
+  | 'keyword:not'
   | 'keyword:null'
   | 'keyword:real'
   | 'keyword:scheme'
@@ -28,6 +29,7 @@ export type Token =
   | 'keyword:then'
   | 'keyword:true'
   | 'keyword:undefined'
+  | 'minus'
   | 'natural'
   | 'pipe'
   | 'real'
@@ -54,6 +56,7 @@ export class Lexer {
     ['keyword:scheme', /^scheme\b/],
     ['keyword:real', /^real\b/],
     ['keyword:null', /^null\b/],
+    ['keyword:not', /^not\b/],
     ['keyword:natural', /^natural\b/],
     ['keyword:let', /^let\b/],
     ['keyword:integer', /^integer\b/],
@@ -93,6 +96,7 @@ export class Lexer {
     ['colon', /^:/],
     ['comma', /^,/],
     ['dollar', /^\$/],
+    ['minus', /^-/],
     ['pipe', /^\|/],
     ['square-left', /^\[/],
     ['square-right', /^\]/],

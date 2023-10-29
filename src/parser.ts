@@ -9,6 +9,7 @@ import {
   LiteralNode,
   NodeInterface,
   TemplateStringLiteral,
+  UnaryOperatorNode,
   VariableNode,
 } from './ast.js';
 import { InternalError, SyntaxError } from './errors.js';
@@ -266,6 +267,8 @@ export class Parser {
         return this._parseIf(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
+      case 'keyword:not':
+        return new UnaryOperatorNode(this._lexer.step());
       case 'keyword:null':
         this._lexer.next();
         return new LiteralNode(NullValue.INSTANCE, NullType.INSTANCE);
@@ -275,6 +278,8 @@ export class Parser {
       case 'keyword:undefined':
         this._lexer.next();
         return new LiteralNode(UndefinedValue.INSTANCE, UndefinedType.INSTANCE);
+      case 'minus':
+        return new UnaryOperatorNode(this._lexer.step());
       case 'natural': {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);

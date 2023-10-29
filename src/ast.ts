@@ -36,19 +36,12 @@ export interface NodeInterface {
   /**
    * Type-checks a Lambda program and returns its type.
    *
-   * If the program uses any Lambda operators (whether they're unary or binary) this algorithm will
-   * modify the AST by storing the selected overload in each respective node.
-   *
    * @param context The type context, mapping variable names to Lambda types.
    */
   getType(context: TypeContext): TypeResults;
 
   /**
    * Evaluates a Lambda program and returns the result.
-   *
-   * If the program uses any Lambda operators (whether they're unary or binary) this algorithm
-   * requires that operator overload resolution has been performed, so you must always invoke
-   * `getType` before `evaluate`.
    *
    * @param context The value context, mapping variable names to values.
    */
@@ -405,6 +398,25 @@ export class FieldNode implements NodeInterface {
 
   public evaluate(): ValueInterface {
     return Closure.wrap((value: ValueInterface) => value.getField(this.name));
+  }
+}
+
+export class UnaryOperatorNode implements NodeInterface {
+  public constructor(public readonly name: string) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>();
+  }
+
+  public getType(): TypeResults {
+    const field = VariableType.getNew();
+    const method = new LambdaType(ObjectType.EMPTY, field);
+    const operand = new ObjectType(Context.create<TauType>().push('#u:' + this.name, method));
+    return new TypeResults(EMPTY_SUBSTITUTION, new LambdaType(operand, field));
+  }
+
+  public evaluate(): ValueInterface {
+    return Closure.wrap((value: ValueInterface) => value.getField('#u:' + this.name));
   }
 }
 

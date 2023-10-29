@@ -292,10 +292,22 @@ defineUnboundPrototype(ListType, ListValue, {
 });
 
 definePrototype(BooleanType, BooleanValue, {
+  '#u:not': method0('boolean', 'boolean', (value: BooleanValue) => {
+    if (value.value) {
+      return BooleanValue.FALSE;
+    } else {
+      return BooleanValue.TRUE;
+    }
+  }),
   str: method0('boolean', 'string', (value: BooleanValue) => new StringValue(value.toString())),
 });
 
 definePrototype(ComplexType, ComplexValue, {
+  '#u:-': method0(
+    'complex',
+    'complex',
+    (value: ComplexValue) => new ComplexValue(-value.real, -value.imaginary),
+  ),
   str: method0('complex', 'string', (value: ComplexValue) => new StringValue(value.toString())),
   real: method0('complex', 'real', (value: ComplexValue) => new RealValue(value.real)),
   imaginary: method0('complex', 'real', (value: ComplexValue) => new RealValue(value.imaginary)),
@@ -307,6 +319,7 @@ definePrototype(ComplexType, ComplexValue, {
 });
 
 definePrototype(RealType, RealValue, {
+  '#u:-': method0('real', 'real', (value: RealValue) => new RealValue(-value.value)),
   str: method0('real', 'string', (value: RealValue) => new StringValue(value.toString())),
   real: method0('real', 'real', (value: RealValue) => new RealValue(value.value)),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -350,6 +363,11 @@ definePrototype(RealType, RealValue, {
 });
 
 definePrototype(RationalType, RationalValue, {
+  '#u:-': method0(
+    'rational',
+    'rational',
+    (value: RationalValue) => new RationalValue(-value.numerator, value.denominator),
+  ),
   str: method0('rational', 'string', (value: RationalValue) => new StringValue(value.toString())),
   real: method0(
     'rational',
@@ -491,6 +509,7 @@ definePrototype(RationalType, RationalValue, {
 });
 
 definePrototype(IntegerType, IntegerValue, {
+  '#u:-': method0('integer', 'integer', (value: IntegerValue) => new IntegerValue(-value.value)),
   str: method0('integer', 'string', (value: IntegerValue) => new StringValue(value.toString())),
   real: method0('integer', 'integer', (value: IntegerValue) => value),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -549,6 +568,7 @@ definePrototype(IntegerType, IntegerValue, {
 });
 
 definePrototype(NaturalType, NaturalValue, {
+  '#u:-': method0('natural', 'integer', (value: NaturalValue) => new IntegerValue(-value.value)),
   str: method0('natural', 'string', (value: NaturalValue) => new StringValue(value.toString())),
   real: method0('natural', 'natural', (value: NaturalValue) => value),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
