@@ -77,7 +77,7 @@ export abstract class TauType {
    * @param other The right-hand side of the type equation.
    * @returns True iff the equation is compatible.
    */
-  public simpleLeq(other: TauType): boolean {
+  public leqSimple(other: TauType): boolean {
     const result = this.leq(other, EMPTY_SUBSTITUTION);
     return !!result && result.isEmpty();
   }
@@ -289,9 +289,9 @@ export class VariableType extends TauType {
     const removed = flattened.map(() => false);
     for (let i = 0; i < flattened.length - 1; i++) {
       for (let j = i + 1; j < flattened.length; j++) {
-        if (flattened[i].simpleLeq(flattened[j])) {
+        if (flattened[i].leqSimple(flattened[j])) {
           removed[i] = true;
-        } else if (flattened[j].simpleLeq(flattened[i])) {
+        } else if (flattened[j].leqSimple(flattened[i])) {
           removed[j] = true;
         }
       }
