@@ -487,7 +487,7 @@ export class NullType extends IotaType {
 }
 
 export class ObjectType extends TauType {
-  public static readonly EMPTY = new ObjectType(Context.create<TauType>());
+  public static readonly EMPTY = new ObjectType(Context.create<TauType>(), /*bind=*/ false);
 
   public readonly fields: Context<TauType>;
 
@@ -504,9 +504,17 @@ export class ObjectType extends TauType {
     return fields.map((_name, field) => ObjectType._bindField(parent, field));
   }
 
-  public constructor(fields: Context<TauType>) {
+  private constructor(fields: Context<TauType>, bind: boolean) {
     super();
-    this.fields = ObjectType._bindFields(this, fields);
+    if (bind) {
+      this.fields = ObjectType._bindFields(this, fields);
+    } else {
+      this.fields = fields;
+    }
+  }
+
+  public static create(fields: Context<TauType>): ObjectType {
+    return new ObjectType(fields, /*bind=*/ true);
   }
 
   public toString(): string {
@@ -525,9 +533,8 @@ export class ObjectType extends TauType {
 
   public substitute(substitution: Substitution): ObjectType {
     return new ObjectType(
-      this.fields.map(
-        (_name, field) => new LambdaType(ObjectType.EMPTY, field.substitute(substitution)),
-      ),
+      this.fields.map((_name, field) => field.substitute(substitution)),
+      /*bind=*/ false,
     );
   }
 
