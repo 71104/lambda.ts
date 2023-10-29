@@ -40,6 +40,7 @@ export type Token =
   | 'template-begin'
   | 'template-end'
   | 'template-middle'
+  | 'tilde'
   | 'end';
 
 export type TokenExpectation = Token | 'identifier-or-keyword';
@@ -100,6 +101,7 @@ export class Lexer {
     ['pipe', /^\|/],
     ['square-left', /^\[/],
     ['square-right', /^\]/],
+    ['tilde', /^~/],
   ];
 
   public readonly _originalInput: string;

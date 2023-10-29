@@ -278,8 +278,6 @@ export class Parser {
       case 'keyword:undefined':
         this._lexer.next();
         return new LiteralNode(UndefinedValue.INSTANCE, UndefinedType.INSTANCE);
-      case 'minus':
-        return new UnaryOperatorNode(this._lexer.step());
       case 'natural': {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
@@ -312,25 +310,38 @@ export class Parser {
   }
 
   private _parse2(terminators: Token[]): NodeInterface {
-    let node = this._parse1(terminators);
+    switch (this._lexer.token) {
+      case 'minus':
+      case 'tilde':
+        return new ApplicationNode(
+          new UnaryOperatorNode(this._lexer.step()),
+          this._parse2(terminators),
+        );
+      default:
+        return this._parse1(terminators);
+    }
+  }
+
+  private _parse3(terminators: Token[]): NodeInterface {
+    let node = this._parse2(terminators);
     while (!terminators.includes(this._lexer.token)) {
-      node = new ApplicationNode(node, this._parse1(terminators));
+      node = new ApplicationNode(node, this._parse2(terminators));
     }
     return node;
   }
 
-  private _parse3(terminators: Token[]): NodeInterface {
+  private _parse4(terminators: Token[]): NodeInterface {
     const terminatorsPlusDollar = terminators.concat('dollar');
-    let node = this._parse2(terminatorsPlusDollar);
+    let node = this._parse3(terminatorsPlusDollar);
     while (!terminators.includes(this._lexer.token)) {
       this._lexer.skip('dollar');
-      node = new ApplicationNode(node, this._parse2(terminatorsPlusDollar));
+      node = new ApplicationNode(node, this._parse3(terminatorsPlusDollar));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse3(terminators);
+    return this._parse4(terminators);
   }
 
   public parse(): NodeInterface {

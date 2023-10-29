@@ -510,6 +510,7 @@ definePrototype(RationalType, RationalValue, {
 
 definePrototype(IntegerType, IntegerValue, {
   '#u:-': method0('integer', 'integer', (value: IntegerValue) => new IntegerValue(-value.value)),
+  '#u:~': method0('integer', 'integer', (value: IntegerValue) => new IntegerValue(~value.value)),
   str: method0('integer', 'string', (value: IntegerValue) => new StringValue(value.toString())),
   real: method0('integer', 'integer', (value: IntegerValue) => value),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -569,6 +570,7 @@ definePrototype(IntegerType, IntegerValue, {
 
 definePrototype(NaturalType, NaturalValue, {
   '#u:-': method0('natural', 'integer', (value: NaturalValue) => new IntegerValue(-value.value)),
+  '#u:~': method0('natural', 'integer', (value: NaturalValue) => new IntegerValue(~value.value)),
   str: method0('natural', 'string', (value: NaturalValue) => new StringValue(value.toString())),
   real: method0('natural', 'natural', (value: NaturalValue) => value),
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
