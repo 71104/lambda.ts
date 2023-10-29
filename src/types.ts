@@ -571,6 +571,10 @@ export class Prototype {
 
   public constructor(public readonly context: TypeContext) {}
 
+  public add(context: TypeContext): Prototype {
+    return new Prototype(this.context.add(context));
+  }
+
   public leq(parent: TauType, other: ObjectType, substitution: Substitution): Substitution | null {
     return other.fields.reduce((substitution, name, field) => {
       if (!this.context.has(name)) {

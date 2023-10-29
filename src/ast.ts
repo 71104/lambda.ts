@@ -383,40 +383,63 @@ export class FixNode implements NodeInterface {
 }
 
 export class FieldNode implements NodeInterface {
-  public constructor(public readonly name: string) {}
+  private readonly _operandName: string;
+  public readonly name: string;
+
+  private constructor(operandName: string, fieldName: string) {
+    this._operandName = operandName;
+    this.name = fieldName;
+  }
+
+  public static create(name: string): NodeInterface {
+    return new LambdaNode('$1', null, new FieldNode('$1', name));
+  }
+
+  public static createUnaryOperator(name: string): NodeInterface {
+    return new LambdaNode('$1', null, new FieldNode('$1', '#u:' + name));
+  }
+
+  public static createBinaryOperator(name: string): NodeInterface {
+    return new LambdaNode(
+      '$1',
+      null,
+      new LambdaNode(
+        '$2',
+        null,
+        new ApplicationNode(new FieldNode('$1', '#b1:' + name), new VariableNode('$2')),
+      ),
+    );
+  }
 
   public getFreeVariables(): Set<string> {
-    return new Set<string>();
+    return new Set<string>([this._operandName]);
   }
 
-  public getType(): TypeResults {
+  public getType(context: TypeContext): TypeResults {
+    if (!context.has(this._operandName)) {
+      throw new TypeError('field container missing from context');
+    }
+    const operand = context.top(this._operandName).instantiate();
     const field = VariableType.getNew();
-    const method = new LambdaType(ObjectType.EMPTY, field);
-    const operand = ObjectType.create(Context.create<TauType>().push(this.name, method));
-    return new TypeResults(EMPTY_SUBSTITUTION, new LambdaType(operand, field));
+    return new TypeResults(
+      operand.leqOrThrow(
+        ObjectType.create(
+          Context.create<TauType>({
+            [this.name]: new LambdaType(ObjectType.EMPTY, field),
+          }),
+        ),
+        EMPTY_SUBSTITUTION,
+      ),
+      field,
+    );
   }
 
-  public evaluate(): ValueInterface {
-    return Closure.wrap((value: ValueInterface) => value.getField(this.name));
-  }
-}
-
-export class UnaryOperatorNode implements NodeInterface {
-  public constructor(public readonly name: string) {}
-
-  public getFreeVariables(): Set<string> {
-    return new Set<string>();
-  }
-
-  public getType(): TypeResults {
-    const field = VariableType.getNew();
-    const method = new LambdaType(ObjectType.EMPTY, field);
-    const operand = ObjectType.create(Context.create<TauType>().push('#u:' + this.name, method));
-    return new TypeResults(EMPTY_SUBSTITUTION, new LambdaType(operand, field));
-  }
-
-  public evaluate(): ValueInterface {
-    return Closure.wrap((value: ValueInterface) => value.getField('#u:' + this.name));
+  public evaluate(context: ValueContext): ValueInterface {
+    if (context.has(this._operandName)) {
+      return context.top(this._operandName).getField(this.name);
+    } else {
+      throw new InternalError('field container missing from context');
+    }
   }
 }
 

@@ -9,7 +9,6 @@ import {
   LiteralNode,
   NodeInterface,
   TemplateStringLiteral,
-  UnaryOperatorNode,
   VariableNode,
 } from './ast.js';
 import { InternalError, SyntaxError } from './errors.js';
@@ -39,6 +38,7 @@ import {
 } from './values.js';
 
 import './prototypes.js';
+import './operators.js';
 
 function unescapeString(input: string): string {
   return input
@@ -302,7 +302,7 @@ export class Parser {
   private _parse1(terminators: Token[]): NodeInterface {
     let node: NodeInterface = this._parse0(terminators);
     while (this._lexer.token === 'field') {
-      node = new ApplicationNode(new FieldNode(this._lexer.step().substring(1)), node);
+      node = new ApplicationNode(FieldNode.create(this._lexer.step().substring(1)), node);
     }
     return node;
   }
@@ -311,7 +311,7 @@ export class Parser {
     switch (this._lexer.token) {
       case 'keyword:not':
       case 'tilde': {
-        const operator = new UnaryOperatorNode(this._lexer.step());
+        const operator = FieldNode.createUnaryOperator(this._lexer.step());
         if (terminators.includes(this._lexer.token)) {
           return operator;
         } else {
@@ -322,7 +322,7 @@ export class Parser {
         // Unary operator `-` cannot be used as a standalone function because it would be ambiguous
         // with its binary counterpart.
         return new ApplicationNode(
-          new UnaryOperatorNode(this._lexer.step()),
+          FieldNode.createUnaryOperator(this._lexer.step()),
           this._parse2(terminators),
         );
       default:
@@ -339,17 +339,30 @@ export class Parser {
   }
 
   private _parse4(terminators: Token[]): NodeInterface {
+    const operators: Token[] = ['plus', 'minus'];
+    terminators = terminators.concat(operators);
+    let node = this._parse3(terminators);
+    while (operators.includes(this._lexer.token)) {
+      node = new ApplicationNode(
+        new ApplicationNode(FieldNode.createBinaryOperator(this._lexer.step()), node),
+        this._parse3(terminators),
+      );
+    }
+    return node;
+  }
+
+  private _parse5(terminators: Token[]): NodeInterface {
     const terminatorsPlusDollar = terminators.concat('dollar');
-    let node = this._parse3(terminatorsPlusDollar);
+    let node = this._parse4(terminatorsPlusDollar);
     while (!terminators.includes(this._lexer.token)) {
       this._lexer.skip('dollar');
-      node = new ApplicationNode(node, this._parse3(terminatorsPlusDollar));
+      node = new ApplicationNode(node, this._parse4(terminatorsPlusDollar));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse4(terminators);
+    return this._parse5(terminators);
   }
 
   public parse(): NodeInterface {

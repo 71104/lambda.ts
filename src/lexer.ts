@@ -32,6 +32,7 @@ export type Token =
   | 'minus'
   | 'natural'
   | 'pipe'
+  | 'plus'
   | 'real'
   | 'string'
   | 'square-left'
@@ -99,6 +100,7 @@ export class Lexer {
     ['dollar', /^\$/],
     ['minus', /^-/],
     ['pipe', /^\|/],
+    ['plus', /^\+/],
     ['square-left', /^\[/],
     ['square-right', /^\]/],
     ['tilde', /^~/],

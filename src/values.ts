@@ -9,6 +9,20 @@ export type ValueConstructor<ValueType extends ValueInterface> =
 
 export type GenericValueConstructor = ValueConstructor<ValueInterface>;
 
+export type ValueName =
+  | 'undefined'
+  | 'null'
+  | 'object'
+  | 'list'
+  | 'boolean'
+  | 'complex'
+  | 'real'
+  | 'rational'
+  | 'integer'
+  | 'natural'
+  | 'string'
+  | 'closure';
+
 export interface ValueInterface {
   toString(): string;
 
@@ -639,3 +653,18 @@ export class Closure implements ValueInterface {
     return node.evaluate(EMPTY_VALUE_CONTEXT);
   }
 }
+
+export const VALUE_CONSTRUCTORS: { [name in ValueName]: GenericValueConstructor } = {
+  undefined: UndefinedValue,
+  null: NullValue,
+  object: ObjectValue,
+  list: ListValue,
+  boolean: BooleanValue,
+  complex: ComplexValue,
+  real: RealValue,
+  rational: RationalValue,
+  integer: IntegerValue,
+  natural: NaturalValue,
+  string: StringValue,
+  closure: Closure,
+};
