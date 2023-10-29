@@ -267,8 +267,6 @@ export class Parser {
         return this._parseIf(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
-      case 'keyword:not':
-        return new UnaryOperatorNode(this._lexer.step());
       case 'keyword:null':
         this._lexer.next();
         return new LiteralNode(NullValue.INSTANCE, NullType.INSTANCE);
@@ -311,8 +309,18 @@ export class Parser {
 
   private _parse2(terminators: Token[]): NodeInterface {
     switch (this._lexer.token) {
+      case 'keyword:not':
+      case 'tilde': {
+        const operator = new UnaryOperatorNode(this._lexer.step());
+        if (terminators.includes(this._lexer.token)) {
+          return operator;
+        } else {
+          return new ApplicationNode(operator, this._parse2(terminators));
+        }
+      }
       case 'minus':
-      case 'tilde':
+        // Unary operator `-` cannot be used as a standalone function because it would be ambiguous
+        // with its binary counterpart.
         return new ApplicationNode(
           new UnaryOperatorNode(this._lexer.step()),
           this._parse2(terminators),
