@@ -359,6 +359,11 @@ export class VariableType extends TauType {
   public substitute(substitution: Substitution): TauType {
     if (substitution.has(this.name)) {
       return substitution.top(this.name).substitute(substitution);
+    } else if (this.constraints.length > 0) {
+      return new VariableType(
+        this.name,
+        this.constraints.map(type => type.substitute(substitution)),
+      );
     } else {
       return this;
     }
