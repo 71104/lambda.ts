@@ -243,9 +243,10 @@ export class TypeScheme {
   }
 
   public rename(): TypeScheme {
+    const variables = this.type.getFreeVariables();
     const hash: { [name: string]: TauType } = Object.create(null);
     this.names.forEach((name, index) => {
-      hash[name] = VariableType.create(`$${index + 1}`);
+      hash[name] = VariableType.create(`$${index + 1}`, variables.get(name)!.constraints);
     });
     return new TypeScheme(
       this.names.map((_name: string, index: number) => `$${index + 1}`),
@@ -337,10 +338,10 @@ export class VariableType extends TauType {
   }
 
   /**
-   * Creates a new named type variable with no constraints.
+   * Creates a new type variable with the specified name and constraints.
    */
-  public static create(name: string): VariableType {
-    return new VariableType(name);
+  public static create(name: string, constraints: TauType[] = []): VariableType {
+    return new VariableType(name, constraints);
   }
 
   public toString(): string {
