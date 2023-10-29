@@ -486,7 +486,7 @@ export class NullType extends IotaType {
   }
 }
 
-export class ObjectType extends IotaType {
+export class ObjectType extends TauType {
   public static readonly EMPTY = new ObjectType(Context.create<TauType>());
 
   public readonly fields: Context<TauType>;
@@ -511,6 +511,28 @@ export class ObjectType extends IotaType {
 
   public toString(): string {
     return 'object';
+  }
+
+  public getFreeVariables(): Map<string, VariableType> {
+    const variables = new Map<string, VariableType>();
+    this.fields.forEach((_name, field) => {
+      field.getFreeVariables().forEach((variable, name) => {
+        variables.set(name, variable);
+      });
+    });
+    return variables;
+  }
+
+  public substitute(substitution: Substitution): ObjectType {
+    return new ObjectType(
+      this.fields.map(
+        (_name, field) => new LambdaType(ObjectType.EMPTY, field.substitute(substitution)),
+      ),
+    );
+  }
+
+  public bindThis(_thisType: TauType, substitution: Substitution): TypeResults {
+    return new TypeResults(substitution, this);
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
