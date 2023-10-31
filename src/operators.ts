@@ -14,6 +14,7 @@ import {
   NaturalValue,
   RationalValue,
   RealValue,
+  StringValue,
   VALUE_CONSTRUCTORS,
   ValueContext,
   ValueInterface,
@@ -129,6 +130,12 @@ class Operator {
 }
 
 new Operator('+')
+  .impl(
+    'string',
+    'string',
+    'string',
+    (lhs: StringValue, rhs: StringValue) => new StringValue(lhs.value + rhs.value),
+  )
   .impl(
     'complex',
     'complex',
@@ -327,6 +334,139 @@ new Operator('-')
     'complex',
     (lhs: ComplexValue, rhs: NaturalValue) => new ComplexValue(lhs.real - rhs.value, lhs.imaginary),
   )
+  .impl(
+    'real',
+    'complex',
+    'complex',
+    (lhs: RealValue, rhs: ComplexValue) => new ComplexValue(lhs.value - rhs.real, -rhs.imaginary),
+  )
+  .impl(
+    'real',
+    'real',
+    'real',
+    (lhs: RealValue, rhs: RealValue) => new RealValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'real',
+    'rational',
+    'real',
+    (lhs: RealValue, rhs: RationalValue) =>
+      new RealValue(lhs.value - rhs.numerator / rhs.denominator),
+  )
+  .impl(
+    'real',
+    'integer',
+    'real',
+    (lhs: RealValue, rhs: IntegerValue) => new RealValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'real',
+    'natural',
+    'real',
+    (lhs: RealValue, rhs: NaturalValue) => new RealValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'rational',
+    'complex',
+    'complex',
+    (lhs: RationalValue, rhs: ComplexValue) =>
+      new ComplexValue(lhs.numerator / lhs.denominator - rhs.real, -rhs.imaginary),
+  )
+  .impl(
+    'rational',
+    'real',
+    'real',
+    (lhs: RationalValue, rhs: RealValue) =>
+      new RealValue(lhs.numerator / lhs.denominator - rhs.value),
+  )
+  .impl(
+    'rational',
+    'rational',
+    'rational',
+    (lhs: RationalValue, rhs: RationalValue) =>
+      new RationalValue(
+        lhs.numerator * rhs.denominator - rhs.numerator * lhs.denominator,
+        lhs.denominator * rhs.denominator,
+      ),
+  )
+  .impl(
+    'rational',
+    'integer',
+    'rational',
+    (lhs: RationalValue, rhs: IntegerValue) =>
+      new RationalValue(lhs.numerator - rhs.value * lhs.denominator, lhs.denominator),
+  )
+  .impl(
+    'rational',
+    'natural',
+    'rational',
+    (lhs: RationalValue, rhs: NaturalValue) =>
+      new RationalValue(lhs.numerator - rhs.value * lhs.denominator, lhs.denominator),
+  )
+  .impl(
+    'integer',
+    'complex',
+    'complex',
+    (lhs: IntegerValue, rhs: ComplexValue) =>
+      new ComplexValue(lhs.value - rhs.real, -rhs.imaginary),
+  )
+  .impl(
+    'integer',
+    'real',
+    'real',
+    (lhs: IntegerValue, rhs: RealValue) => new RealValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'integer',
+    'rational',
+    'rational',
+    (lhs: IntegerValue, rhs: RationalValue) =>
+      new RationalValue(lhs.value * rhs.denominator - rhs.numerator, rhs.denominator),
+  )
+  .impl(
+    'integer',
+    'integer',
+    'integer',
+    (lhs: IntegerValue, rhs: IntegerValue) => new IntegerValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'integer',
+    'natural',
+    'integer',
+    (lhs: IntegerValue, rhs: NaturalValue) => new IntegerValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'natural',
+    'complex',
+    'complex',
+    (lhs: NaturalValue, rhs: ComplexValue) =>
+      new ComplexValue(lhs.value - rhs.real, -rhs.imaginary),
+  )
+  .impl(
+    'natural',
+    'real',
+    'real',
+    (lhs: NaturalValue, rhs: RealValue) => new RealValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'natural',
+    'rational',
+    'rational',
+    (lhs: NaturalValue, rhs: RationalValue) =>
+      new RationalValue(lhs.value * rhs.denominator - rhs.numerator, rhs.denominator),
+  )
+  .impl(
+    'natural',
+    'integer',
+    'integer',
+    (lhs: NaturalValue, rhs: IntegerValue) => new IntegerValue(lhs.value - rhs.value),
+  )
+  .impl(
+    'natural',
+    'natural',
+    'integer',
+    (lhs: NaturalValue, rhs: NaturalValue) => new IntegerValue(lhs.value - rhs.value),
+  )
   .close();
 
 new Operator('*')
@@ -370,5 +510,134 @@ new Operator('*')
     'complex',
     (lhs: ComplexValue, rhs: NaturalValue) =>
       new ComplexValue(lhs.real * rhs.value, lhs.imaginary * rhs.value),
+  )
+  .impl(
+    'real',
+    'complex',
+    'complex',
+    (lhs: RealValue, rhs: ComplexValue) =>
+      new ComplexValue(lhs.value * rhs.real, lhs.value * rhs.imaginary),
+  )
+  .impl(
+    'real',
+    'real',
+    'real',
+    (lhs: RealValue, rhs: RealValue) => new RealValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'real',
+    'rational',
+    'real',
+    (lhs: RealValue, rhs: RationalValue) =>
+      new RealValue((lhs.value * rhs.numerator) / rhs.denominator),
+  )
+  .impl(
+    'real',
+    'integer',
+    'real',
+    (lhs: RealValue, rhs: IntegerValue) => new RealValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'real',
+    'natural',
+    'real',
+    (lhs: RealValue, rhs: NaturalValue) => new RealValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'rational',
+    'complex',
+    'complex',
+    (lhs: RationalValue, rhs: ComplexValue) =>
+      new ComplexValue((lhs.numerator / lhs.denominator) * rhs.real, rhs.imaginary),
+  )
+  .impl(
+    'rational',
+    'real',
+    'real',
+    (lhs: RationalValue, rhs: RealValue) =>
+      new RealValue((lhs.numerator * rhs.value) / lhs.denominator),
+  )
+  .impl(
+    'rational',
+    'rational',
+    'rational',
+    (lhs: RationalValue, rhs: RationalValue) =>
+      new RationalValue(lhs.numerator * rhs.numerator, lhs.denominator * rhs.denominator),
+  )
+  .impl(
+    'rational',
+    'integer',
+    'rational',
+    (lhs: RationalValue, rhs: IntegerValue) =>
+      new RationalValue(lhs.numerator * rhs.value, lhs.denominator),
+  )
+  .impl(
+    'rational',
+    'natural',
+    'rational',
+    (lhs: RationalValue, rhs: NaturalValue) =>
+      new RationalValue(lhs.numerator * rhs.value, lhs.denominator),
+  )
+  .impl(
+    'integer',
+    'complex',
+    'complex',
+    (lhs: IntegerValue, rhs: ComplexValue) => new ComplexValue(lhs.value * rhs.real, rhs.imaginary),
+  )
+  .impl(
+    'integer',
+    'real',
+    'real',
+    (lhs: IntegerValue, rhs: RealValue) => new RealValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'integer',
+    'rational',
+    'rational',
+    (lhs: IntegerValue, rhs: RationalValue) =>
+      new RationalValue(lhs.value * rhs.numerator, rhs.denominator),
+  )
+  .impl(
+    'integer',
+    'integer',
+    'integer',
+    (lhs: IntegerValue, rhs: IntegerValue) => new IntegerValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'integer',
+    'natural',
+    'integer',
+    (lhs: IntegerValue, rhs: NaturalValue) => new IntegerValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'natural',
+    'complex',
+    'complex',
+    (lhs: NaturalValue, rhs: ComplexValue) => new ComplexValue(lhs.value * rhs.real, rhs.imaginary),
+  )
+  .impl(
+    'natural',
+    'real',
+    'real',
+    (lhs: NaturalValue, rhs: RealValue) => new RealValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'natural',
+    'rational',
+    'rational',
+    (lhs: NaturalValue, rhs: RationalValue) =>
+      new RationalValue(lhs.value * rhs.numerator, rhs.denominator),
+  )
+  .impl(
+    'natural',
+    'integer',
+    'integer',
+    (lhs: NaturalValue, rhs: IntegerValue) => new IntegerValue(lhs.value * rhs.value),
+  )
+  .impl(
+    'natural',
+    'natural',
+    'natural',
+    (lhs: NaturalValue, rhs: NaturalValue) => new NaturalValue(lhs.value * rhs.value),
   )
   .close();
