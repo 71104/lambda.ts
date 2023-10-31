@@ -282,6 +282,9 @@ export class Parser {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
       }
+      case 'minus':
+      case 'plus':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'real': {
         const realValue = parseFloat(this._lexer.step());
         return new LiteralNode(new RealValue(realValue), RealType.INSTANCE);
@@ -296,6 +299,8 @@ export class Parser {
       }
       case 'template-begin':
         return this._parseTemplate();
+      case 'times':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }

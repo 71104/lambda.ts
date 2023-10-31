@@ -245,6 +245,40 @@ defineUnboundPrototype(ListType, ListValue, {
         ),
     ),
   ),
+  reduce: listMethod(
+    newVar(
+      element =>
+        new LambdaNode(
+          '$1', // list
+          new ListType(element),
+          newVar(
+            accumulator =>
+              new LambdaNode(
+                '$2', // callback
+                new LambdaType(accumulator, new LambdaType(element, accumulator)),
+                new LambdaNode(
+                  '$3', // initial value
+                  accumulator,
+                  new SemiNativeNode(
+                    accumulator,
+                    (
+                      list: ValueInterface,
+                      callback: ValueInterface,
+                      accumulator: ValueInterface,
+                    ) => {
+                      const closure = callback.cast(Closure);
+                      for (const element of list.cast(ListValue).elements()) {
+                        accumulator = closure.apply(accumulator).cast(Closure).apply(element);
+                      }
+                      return accumulator;
+                    },
+                  ),
+                ),
+              ),
+          ),
+        ),
+    ),
+  ),
   every: listMethod(
     newVar(
       element =>

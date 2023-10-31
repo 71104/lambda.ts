@@ -380,22 +380,27 @@ export class VariableType extends TauType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
       return this.substitute(substitution).leq(other, substitution);
-    } else if (other instanceof VariableType) {
+    }
+    if (other instanceof VariableType) {
       if (this.name === other.name) {
         return substitution;
       } else if (substitution.has(other.name)) {
         return this.leq(other.substitute(substitution), substitution);
-      } else {
-        for (const type of this.constraints) {
-          const result = type.leq(other, substitution);
-          if (result) {
-            substitution = result;
-          } else {
-            return null;
-          }
-        }
-        return TauType._substituteIfNoCycles(substitution, other.name, this);
       }
+    }
+    for (const constraint of this.constraints) {
+      const result = constraint.leq(other, substitution);
+      if (result) {
+        substitution = result;
+      } else {
+        return null;
+      }
+    }
+    if (other instanceof VariableType) {
+      return TauType._substituteIfNoCycles(substitution, other.name, this);
+    } else if (this.constraints.length > 0) {
+      // TODO: this variable must be replaced with its own constraint, not with `other`!
+      return TauType._substituteIfNoCycles(substitution, this.name, other);
     } else {
       return TauType._substituteIfNoCycles(substitution, this.name, other);
     }
