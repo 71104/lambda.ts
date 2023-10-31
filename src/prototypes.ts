@@ -1,4 +1,5 @@
 import { LambdaNode, SemiNativeNode } from './ast.js';
+import { Context } from './context.js';
 import { RuntimeError } from './errors.js';
 import {
   BooleanType,
@@ -11,6 +12,7 @@ import {
   LambdaType,
   ListType,
   NaturalType,
+  ObjectType,
   Prototype,
   RationalType,
   RealType,
@@ -140,23 +142,6 @@ function listMethod0(result: IotaTypeName, fn: (list: ListValue) => ValueInterfa
   );
 }
 
-function listMethod1<Arg1 extends ValueInterface>(
-  arg1: IotaTypeName,
-  result: IotaTypeName,
-  fn: (list: ListValue, arg1: Arg1) => ValueInterface,
-): TypedTerm {
-  return new TypedTerm(
-    new LambdaType(
-      new ListType(VariableType.getNew()),
-      new LambdaType(
-        IOTA_TYPE_CONSTRUCTORS[arg1].INSTANCE,
-        IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
-      ),
-    ).close(),
-    Closure.wrap(fn),
-  );
-}
-
 function listMethod(ast: LambdaNode): TypedTerm {
   const { substitution, type } = ast.getType(EMPTY_TYPE_CONTEXT);
   return new TypedTerm(type.substitute(substitution).close(), ast.evaluate(EMPTY_VALUE_CONTEXT));
@@ -166,16 +151,30 @@ defineUnboundPrototype(ListType, ListValue, {
   length: listMethod0('natural', (value: ListValue) => new NaturalValue(value.count)),
   empty: listMethod0('boolean', (value: ListValue) => new BooleanValue(!value.count)),
   str: listMethod0('string', (value: ListValue) => new StringValue(value.toString())),
-  join: listMethod1(
-    'string',
-    'string',
-    (value: ListValue, separator: ValueInterface) =>
-      // TODO: use the `.str` field rather than the native `toString()` method.
-      new StringValue(
-        [...value.elements()]
-          .map(element => element.toString())
-          .join(separator.cast(StringValue).value),
+  join: listMethod(
+    new LambdaNode(
+      '$1', // list
+      new ListType(
+        ObjectType.create(
+          Context.create<TauType>({
+            str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE),
+          }),
+        ),
       ),
+      new LambdaNode(
+        '$2', // separator
+        StringType.INSTANCE,
+        new SemiNativeNode(
+          StringType.INSTANCE,
+          (list: ValueInterface, separator: ValueInterface) => {
+            const array = [...list.cast(ListValue).elements()].map(element =>
+              element.getField('str').marshal(),
+            );
+            return new StringValue(array.join(separator.cast(StringValue).value));
+          },
+        ),
+      ),
+    ),
   ),
   head: getVar0(inner => ({
     result: inner,
@@ -197,95 +196,99 @@ defineUnboundPrototype(ListType, ListValue, {
       }
     },
   })),
-  map: newVar(input =>
-    listMethod(
-      new LambdaNode(
-        '$1', // list
-        new ListType(input),
-        newVar(
-          output =>
-            new LambdaNode(
-              '$2', // callback
-              new LambdaType(input, output),
-              new SemiNativeNode(
-                new ListType(output),
-                (list: ValueInterface, callback: ValueInterface) => {
-                  const closure = callback.cast(Closure);
-                  const elements = [...list.cast(ListValue).elements()].map(element =>
-                    closure.apply(element),
-                  );
-                  return new ListValue(elements, 0, elements.length);
-                },
+  map: listMethod(
+    newVar(
+      input =>
+        new LambdaNode(
+          '$1', // list
+          new ListType(input),
+          newVar(
+            output =>
+              new LambdaNode(
+                '$2', // callback
+                new LambdaType(input, output),
+                new SemiNativeNode(
+                  new ListType(output),
+                  (list: ValueInterface, callback: ValueInterface) => {
+                    const closure = callback.cast(Closure);
+                    const elements = [...list.cast(ListValue).elements()].map(element =>
+                      closure.apply(element),
+                    );
+                    return new ListValue(elements, 0, elements.length);
+                  },
+                ),
               ),
+          ),
+        ),
+    ),
+  ),
+  filter: listMethod(
+    newVar(
+      element =>
+        new LambdaNode(
+          '$1', // list
+          new ListType(element),
+          new LambdaNode(
+            '$2', // callback
+            new LambdaType(element, BooleanType.INSTANCE),
+            new SemiNativeNode(
+              new ListType(element),
+              (list: ValueInterface, callback: ValueInterface) => {
+                const closure = callback.cast(Closure);
+                const elements = [...list.cast(ListValue).elements()].filter(
+                  element => closure.apply(element).cast(BooleanValue).value,
+                );
+                return new ListValue(elements, 0, elements.length);
+              },
             ),
-        ),
-      ),
-    ),
-  ),
-  filter: newVar(element =>
-    listMethod(
-      new LambdaNode(
-        '$1', // list
-        new ListType(element),
-        new LambdaNode(
-          '$2', // callback
-          new LambdaType(element, BooleanType.INSTANCE),
-          new SemiNativeNode(
-            new ListType(element),
-            (list: ValueInterface, callback: ValueInterface) => {
-              const closure = callback.cast(Closure);
-              const elements = [...list.cast(ListValue).elements()].filter(
-                element => closure.apply(element).cast(BooleanValue).value,
-              );
-              return new ListValue(elements, 0, elements.length);
-            },
           ),
         ),
-      ),
     ),
   ),
-  every: newVar(element =>
-    listMethod(
-      new LambdaNode(
-        '$1', // list
-        new ListType(element),
+  every: listMethod(
+    newVar(
+      element =>
         new LambdaNode(
-          '$2', // callback
-          new LambdaType(element, BooleanType.INSTANCE),
-          new SemiNativeNode(
-            BooleanType.INSTANCE,
-            (list: ValueInterface, callback: ValueInterface) => {
-              const closure = callback.cast(Closure);
-              const result = [...list.cast(ListValue).elements()].every(
-                element => closure.apply(element).cast(BooleanValue).value,
-              );
-              return result ? BooleanValue.TRUE : BooleanValue.FALSE;
-            },
+          '$1', // list
+          new ListType(element),
+          new LambdaNode(
+            '$2', // callback
+            new LambdaType(element, BooleanType.INSTANCE),
+            new SemiNativeNode(
+              BooleanType.INSTANCE,
+              (list: ValueInterface, callback: ValueInterface) => {
+                const closure = callback.cast(Closure);
+                const result = [...list.cast(ListValue).elements()].every(
+                  element => closure.apply(element).cast(BooleanValue).value,
+                );
+                return result ? BooleanValue.TRUE : BooleanValue.FALSE;
+              },
+            ),
           ),
         ),
-      ),
     ),
   ),
-  some: newVar(element =>
-    listMethod(
-      new LambdaNode(
-        '$1', // list
-        new ListType(element),
+  some: listMethod(
+    newVar(
+      element =>
         new LambdaNode(
-          '$2', // callback
-          new LambdaType(element, BooleanType.INSTANCE),
-          new SemiNativeNode(
-            BooleanType.INSTANCE,
-            (list: ValueInterface, callback: ValueInterface) => {
-              const closure = callback.cast(Closure);
-              const result = [...list.cast(ListValue).elements()].some(
-                element => closure.apply(element).cast(BooleanValue).value,
-              );
-              return result ? BooleanValue.TRUE : BooleanValue.FALSE;
-            },
+          '$1', // list
+          new ListType(element),
+          new LambdaNode(
+            '$2', // callback
+            new LambdaType(element, BooleanType.INSTANCE),
+            new SemiNativeNode(
+              BooleanType.INSTANCE,
+              (list: ValueInterface, callback: ValueInterface) => {
+                const closure = callback.cast(Closure);
+                const result = [...list.cast(ListValue).elements()].some(
+                  element => closure.apply(element).cast(BooleanValue).value,
+                );
+                return result ? BooleanValue.TRUE : BooleanValue.FALSE;
+              },
+            ),
           ),
         ),
-      ),
     ),
   ),
   // TODO
