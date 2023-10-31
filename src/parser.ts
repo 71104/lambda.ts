@@ -339,7 +339,7 @@ export class Parser {
   }
 
   private _parse4(terminators: Token[]): NodeInterface {
-    const operators: Token[] = ['plus', 'minus'];
+    const operators: Token[] = ['times'];
     terminators = terminators.concat(operators);
     let node = this._parse3(terminators);
     while (operators.includes(this._lexer.token)) {
@@ -352,17 +352,30 @@ export class Parser {
   }
 
   private _parse5(terminators: Token[]): NodeInterface {
+    const operators: Token[] = ['plus', 'minus'];
+    terminators = terminators.concat(operators);
+    let node = this._parse4(terminators);
+    while (operators.includes(this._lexer.token)) {
+      node = new ApplicationNode(
+        new ApplicationNode(FieldNode.createBinaryOperator(this._lexer.step()), node),
+        this._parse4(terminators),
+      );
+    }
+    return node;
+  }
+
+  private _parse6(terminators: Token[]): NodeInterface {
     const terminatorsPlusDollar = terminators.concat('dollar');
-    let node = this._parse4(terminatorsPlusDollar);
+    let node = this._parse5(terminatorsPlusDollar);
     while (!terminators.includes(this._lexer.token)) {
       this._lexer.skip('dollar');
-      node = new ApplicationNode(node, this._parse4(terminatorsPlusDollar));
+      node = new ApplicationNode(node, this._parse5(terminatorsPlusDollar));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse5(terminators);
+    return this._parse6(terminators);
   }
 
   public parse(): NodeInterface {

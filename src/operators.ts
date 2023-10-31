@@ -1,5 +1,7 @@
+import { ApplicationNode, FieldNode, LambdaNode, VariableNode } from './ast.js';
 import { InternalError } from './errors.js';
 import {
+  EMPTY_TYPE_CONTEXT,
   IOTA_TYPE_CONSTRUCTORS,
   IotaTypeName,
   Prototype,
@@ -9,6 +11,7 @@ import {
 import {
   Closure,
   ComplexValue,
+  EMPTY_VALUE_CONTEXT,
   IntegerValue,
   NaturalValue,
   RationalValue,
@@ -69,7 +72,23 @@ class OperandPrototype<LHS extends ValueInterface> {
     const types: { [name: string]: TypeScheme } = Object.create(null);
     const values: { [name: string]: ValueInterface } = Object.create(null);
 
-    // TODO
+    for (const name in this._operators) {
+      const term = new LambdaNode(
+        'lhs',
+        IOTA_TYPE_CONSTRUCTORS[this.lhs].INSTANCE,
+        new LambdaNode(
+          'rhs',
+          null,
+          new ApplicationNode(
+            FieldNode.createRaw('rhs', `#b2:${this.lhs}:${name}`),
+            new VariableNode('lhs'),
+          ),
+        ),
+      );
+      const { type } = term.getType(EMPTY_TYPE_CONTEXT);
+      types[`#b1:${name}`] = type.close();
+      values[`#b1:{name}`] = term.evaluate(EMPTY_VALUE_CONTEXT);
+    }
 
     const OperandTypeConstructor = IOTA_TYPE_CONSTRUCTORS[this.lhs] as unknown as {
       PROTOTYPE: Prototype;
@@ -152,6 +171,45 @@ new OperandPrototype<ComplexValue>('complex')
         'complex',
         (lhs: ComplexValue, rhs: NaturalValue) =>
           new ComplexValue(lhs.real - rhs.value, lhs.imaginary),
+      ),
+  )
+  .define('*', operator =>
+    operator
+      .impl(
+        'complex',
+        'complex',
+        (lhs: ComplexValue, rhs: ComplexValue) =>
+          new ComplexValue(
+            lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
+            lhs.real * rhs.imaginary + lhs.imaginary * rhs.real,
+          ),
+      )
+      .impl(
+        'real',
+        'complex',
+        (lhs: ComplexValue, rhs: RealValue) =>
+          new ComplexValue(lhs.real * rhs.value, lhs.imaginary * rhs.value),
+      )
+      .impl(
+        'rational',
+        'complex',
+        (lhs: ComplexValue, rhs: RationalValue) =>
+          new ComplexValue(
+            (lhs.real * rhs.numerator) / rhs.denominator,
+            (lhs.imaginary * rhs.numerator) / rhs.denominator,
+          ),
+      )
+      .impl(
+        'integer',
+        'complex',
+        (lhs: ComplexValue, rhs: IntegerValue) =>
+          new ComplexValue(lhs.real * rhs.value, lhs.imaginary * rhs.value),
+      )
+      .impl(
+        'natural',
+        'complex',
+        (lhs: ComplexValue, rhs: NaturalValue) =>
+          new ComplexValue(lhs.real * rhs.value, lhs.imaginary * rhs.value),
       ),
   )
   .close();

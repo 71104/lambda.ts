@@ -391,6 +391,10 @@ export class FieldNode implements NodeInterface {
     this.name = fieldName;
   }
 
+  public static createRaw(operand: string, name: string): NodeInterface {
+    return new FieldNode(operand, name);
+  }
+
   public static create(name: string): NodeInterface {
     return new LambdaNode('$1', null, new FieldNode('$1', name));
   }
