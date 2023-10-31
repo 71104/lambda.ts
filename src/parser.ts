@@ -253,6 +253,8 @@ export class Parser {
         const imaginaryValue = parseFloat(this._lexer.step());
         return new LiteralNode(new ComplexValue(0, imaginaryValue), ComplexType.INSTANCE);
       }
+      case 'field':
+        return FieldNode.create(this._lexer.step().substring(1));
       case 'identifier':
         return new VariableNode(this._lexer.step());
       case 'keyword:false':
