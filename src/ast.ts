@@ -166,7 +166,7 @@ export class VariableNode implements NodeInterface {
 }
 
 export class LambdaNode implements NodeInterface {
-  public readonly type: VariableType;
+  public readonly type: TauType;
 
   public constructor(
     public readonly name: string,
@@ -174,11 +174,9 @@ export class LambdaNode implements NodeInterface {
     public readonly body: NodeInterface,
   ) {
     if (!type) {
-      this.type = VariableType.getNew();
-    } else if (type instanceof VariableType) {
-      this.type = type;
+      this.type = new VariableType();
     } else {
-      this.type = VariableType.getNew([type]);
+      this.type = type;
     }
   }
 
@@ -189,7 +187,7 @@ export class LambdaNode implements NodeInterface {
   }
 
   public getType(context: TypeContext): TypeResults {
-    const parameter = this.type || VariableType.getNew();
+    const parameter = this.type || new VariableType();
     const { substitution, type } = this.body.getType(
       context.push(this.name, new TypeScheme([], parameter)),
     );
@@ -278,7 +276,7 @@ export class ApplicationNode implements NodeInterface {
     const right = this.right.getType(
       context.map((_, scheme) => scheme.substitute(left.substitution)),
     );
-    const lambda = new LambdaType(right.type, VariableType.getNew());
+    const lambda = new LambdaType(right.type, new VariableType());
     const substitution = left.type.leqOrThrow(lambda, right.substitution);
     return new TypeResults(
       left.substitution.add(right.substitution).add(substitution),
@@ -370,7 +368,7 @@ export class FixNode implements NodeInterface {
   }
 
   public getType(): TypeResults {
-    const variable = VariableType.getNew();
+    const variable = new VariableType();
     return new TypeResults(
       EMPTY_SUBSTITUTION,
       new LambdaType(new LambdaType(variable, variable), variable),
@@ -424,18 +422,16 @@ export class FieldNode implements NodeInterface {
       throw new TypeError('field container missing from context');
     }
     const operand = context.top(this._operandName).instantiate();
-    const field = VariableType.getNew();
-    return new TypeResults(
-      operand.leqOrThrow(
-        ObjectType.create(
-          Context.create<TauType>({
-            [this.name]: new LambdaType(ObjectType.EMPTY, field),
-          }),
-        ),
-        EMPTY_SUBSTITUTION,
+    const field = new VariableType();
+    const substitution = operand.leqOrThrow(
+      ObjectType.create(
+        Context.create<TauType>({
+          [this.name]: new LambdaType(ObjectType.EMPTY, field),
+        }),
       ),
-      field,
+      EMPTY_SUBSTITUTION,
     );
+    return new TypeResults(substitution, field.substitute(substitution));
   }
 
   public evaluate(context: ValueContext): ValueInterface {

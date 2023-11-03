@@ -120,13 +120,13 @@ interface SemiTypedTerm0<Arg0 extends ValueInterface> {
 }
 
 function newVar<Result>(fn: (variable: VariableType) => Result): Result {
-  return fn(VariableType.getNew());
+  return fn(new VariableType());
 }
 
 function getVar0<Arg0 extends ValueInterface>(
   fn: (inner: VariableType, list: ListType) => SemiTypedTerm0<Arg0>,
 ): TypedTerm {
-  const inner = VariableType.getNew();
+  const inner = new VariableType();
   const list = new ListType(inner);
   const { result, value } = fn(inner, list);
   return new TypedTerm(new LambdaType(list, result).close(), Closure.wrap(value));
@@ -135,7 +135,7 @@ function getVar0<Arg0 extends ValueInterface>(
 function listMethod0(result: IotaTypeName, fn: (list: ListValue) => ValueInterface): TypedTerm {
   return new TypedTerm(
     new LambdaType(
-      new ListType(VariableType.getNew()),
+      new ListType(new VariableType()),
       IOTA_TYPE_CONSTRUCTORS[result].INSTANCE,
     ).close(),
     Closure.wrap(fn),

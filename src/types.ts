@@ -1,4 +1,5 @@
 import { Context } from './context.js';
+import { InternalError } from './errors.js';
 
 /**
  * Represents a type with zero or more type variables in its structure, also known as a "tau type"
@@ -213,15 +214,9 @@ export class TypeScheme {
    * @returns The instantiated tau type.
    */
   public instantiate(): TauType {
-    const variables = this.type.getFreeVariables();
     const hash: { [name: string]: TauType } = Object.create(null);
     this.names.forEach(name => {
-      if (variables.has(name)) {
-        const variable = variables.get(name)!;
-        hash[name] = VariableType.getNew(variable.constraints);
-      } else {
-        hash[name] = VariableType.getNew();
-      }
+      hash[name] = new VariableType();
     });
     return this.type.substitute(Substitution.create<TauType>(hash));
   }
@@ -243,10 +238,9 @@ export class TypeScheme {
   }
 
   public rename(): TypeScheme {
-    const variables = this.type.getFreeVariables();
     const hash: { [name: string]: TauType } = Object.create(null);
     this.names.forEach((name, index) => {
-      hash[name] = VariableType.create(`$${index + 1}`, variables.get(name)!.constraints);
+      hash[name] = new VariableType(`$${index + 1}`);
     });
     return new TypeScheme(
       this.names.map((_name: string, index: number) => `$${index + 1}`),
@@ -259,29 +253,91 @@ export type TypeContext = Context<TypeScheme>;
 export const TypeContext = Context<TypeScheme>;
 export const EMPTY_TYPE_CONTEXT = TypeContext.create<TypeScheme>();
 
-/**
- * Represents a type variable.
- *
- * In Lambda, type variables may have one or more "constraints". Each constraint is a tau type and
- * the variable may only be replaced by a type that's a subtype of at least one of the contraints.
- * Constraints are used to implement Lambda's union types, e.g. `integer|string`.
- */
 export class VariableType extends TauType {
   private static _next_id = 0;
 
+  public readonly name: string;
+
   /**
-   * Called at construction time to eliminate redundant constraints. For example, the union type
-   * `real|integer` is automatically converted into a single `real` constraint because `integer` is
+   * Constructs a `VariableType` with the specified name. If the name is `null` a new unique name
+   * is automatically assigned.
+   */
+  public constructor(name?: string) {
+    super();
+    if (name) {
+      this.name = name;
+    } else {
+      this.name = '#' + VariableType._next_id++;
+    }
+  }
+
+  public static newVar<Result>(callback: (variable: VariableType) => Result): Result {
+    return callback(new VariableType());
+  }
+
+  public toString(): string {
+    return this.name;
+  }
+
+  public getFreeVariables(): Map<string, VariableType> {
+    return new Map<string, VariableType>([[this.name, this]]);
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    if (substitution.has(this.name)) {
+      return substitution.top(this.name).substitute(substitution);
+    } else {
+      return this;
+    }
+  }
+
+  public bindThis(thisType: TauType, substitution: Substitution): TypeResults | null {
+    if (substitution.has(this.name)) {
+      return this.substitute(substitution).bindThis(thisType, substitution);
+    } else {
+      return new TypeResults(substitution, new VariableType());
+    }
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (substitution.has(this.name)) {
+      return this.substitute(substitution).leq(other, substitution);
+    } else if (other instanceof VariableType) {
+      if (this.name === other.name) {
+        return substitution;
+      } else if (substitution.has(other.name)) {
+        return this.leq(other.substitute(substitution), substitution);
+      } else {
+        return TauType._substituteIfNoCycles(substitution, this.name, other);
+      }
+    } else {
+      return TauType._substituteIfNoCycles(substitution, this.name, other);
+    }
+  }
+
+  public geq(other: TauType, substitution: Substitution): Substitution | null {
+    if (substitution.has(this.name)) {
+      return other.leq(substitution.top(this.name), substitution);
+    } else {
+      return TauType._substituteIfNoCycles(substitution, this.name, other);
+    }
+  }
+}
+
+export class UnionType extends TauType {
+  /**
+   * Called at construction time to eliminate redundant types. For example, the union type
+   * `real|integer` is automatically converted into a single `real` type because `integer` is
    * a subtype of `real`.
    *
-   * @param constraints The constraints specified by the user at construction.
-   * @returns The optimized constraints.
+   * @param types The types specified by the user at construction.
+   * @returns The optimized types.
    */
-  private static _optimizeConstraints(constraints: TauType[]): TauType[] {
+  private static _optimizeTypes(types: TauType[]): TauType[] {
     const flattened: TauType[] = [];
-    constraints.forEach(type => {
-      if (type instanceof VariableType && type.constraints) {
-        flattened.push(...type.constraints);
+    types.forEach(type => {
+      if (type instanceof UnionType && type.types) {
+        flattened.push(...type.types);
       } else {
         flattened.push(type);
       }
@@ -296,130 +352,82 @@ export class VariableType extends TauType {
         }
       }
     }
-    const types: TauType[] = [];
+    const result: TauType[] = [];
     for (let i = 0; i < flattened.length; i++) {
       if (!removed[i]) {
-        types.push(flattened[i]);
+        result.push(flattened[i]);
       }
     }
-    return types;
+    return result;
   }
 
-  public readonly name: string;
-  public readonly constraints: TauType[];
-
-  /**
-   * Constructs a `VariableType` with the specified name and constraints. If the name is `null` a
-   * new unique name is automatically assigned.
-   */
-  private constructor(name: string | null, constraints: TauType[] = []) {
+  private constructor(public readonly types: TauType[]) {
     super();
-    if (name !== null) {
-      this.name = name;
+  }
+
+  public static create(types: TauType[]): TauType {
+    types = UnionType._optimizeTypes(types);
+    if (types.length < 1) {
+      throw new InternalError('cannot create an empty union type');
+    } else if (types.length < 2) {
+      return types[0];
     } else {
-      this.name = '#' + VariableType._next_id++;
+      return new UnionType(types);
     }
-    this.constraints = VariableType._optimizeConstraints(constraints);
-  }
-
-  /**
-   * Returns a new type variable with a new unique name and the specified constraints.
-   */
-  public static getNew(constraints: TauType[] = []): VariableType {
-    return new VariableType(null, constraints);
-  }
-
-  /**
-   * Like `getNew`, but passes the newly generated variable to the specified callback rather than
-   * returning it directly. It then returns whatever value is returned by the callback.
-   */
-  public static newVar<Result>(callback: (variable: VariableType) => Result): Result {
-    return callback(VariableType.getNew());
-  }
-
-  /**
-   * Creates a new type variable with the specified name and constraints.
-   */
-  public static create(name: string, constraints: TauType[] = []): VariableType {
-    return new VariableType(name, constraints);
   }
 
   public toString(): string {
-    if (this.constraints.length > 0) {
-      return this.constraints.map(type => `(${type.toString()})`).join('|');
-    } else {
-      return this.name;
-    }
+    return this.types.map(type => `(${type.toString()})`).join('|');
   }
 
   public getFreeVariables(): Map<string, VariableType> {
-    return new Map<string, VariableType>([[this.name, this]]);
+    const result = new Map<string, VariableType>();
+    for (const type of this.types) {
+      for (const [name, variable] of type.getFreeVariables()) {
+        result.set(name, variable);
+      }
+    }
+    return result;
   }
 
-  public substitute(substitution: Substitution): TauType {
-    if (substitution.has(this.name)) {
-      return substitution.top(this.name).substitute(substitution);
-    } else if (this.constraints.length > 0) {
-      return new VariableType(
-        this.name,
-        this.constraints.map(type => type.substitute(substitution)),
-      );
-    } else {
-      return this;
-    }
+  public substitute(substitution: Substitution): UnionType {
+    return new UnionType(this.types.map(type => type.substitute(substitution)));
   }
 
   public bindThis(thisType: TauType, substitution: Substitution): TypeResults | null {
-    if (substitution.has(this.name)) {
-      return this.substitute(substitution).bindThis(thisType, substitution);
-    } else {
-      return new TypeResults(substitution, VariableType.getNew());
+    const types: TauType[] = [];
+    for (const type of this.types) {
+      const results = type.bindThis(thisType, substitution);
+      if (results) {
+        substitution = results.substitution;
+        types.push(results.type);
+      } else {
+        return null;
+      }
     }
+    return new TypeResults(substitution, new UnionType(types));
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
-    if (substitution.has(this.name)) {
-      return this.substitute(substitution).leq(other, substitution);
-    }
-    if (other instanceof VariableType) {
-      if (this.name === other.name) {
-        return substitution;
-      } else if (substitution.has(other.name)) {
-        return this.leq(other.substitute(substitution), substitution);
-      }
-    }
-    for (const constraint of this.constraints) {
-      const result = constraint.leq(other, substitution);
+    for (const type of this.types) {
+      const result = type.leq(other, substitution);
       if (result) {
         substitution = result;
       } else {
         return null;
       }
     }
-    if (other instanceof VariableType) {
-      return TauType._substituteIfNoCycles(substitution, other.name, this);
-    } else if (this.constraints.length > 0) {
-      // TODO: this variable must be replaced with its own constraint, not with `other`!
-      return TauType._substituteIfNoCycles(substitution, this.name, other);
-    } else {
-      return TauType._substituteIfNoCycles(substitution, this.name, other);
-    }
+    return substitution;
   }
 
   public geq(other: TauType, substitution: Substitution): Substitution | null {
-    if (substitution.has(this.name)) {
-      return other.leq(substitution.top(this.name), substitution);
-    } else if (this.constraints.length > 0) {
-      const candidates = this.constraints
-        .map(constraint => other.leq(constraint, substitution))
-        .filter(candidate => !!candidate);
-      if (candidates.length !== 1) {
-        return null;
-      } else {
-        return TauType._substituteIfNoCycles(candidates[0]!, this.name, other);
-      }
+    const candidates = this.types
+      .map(type => other.leq(type, substitution))
+      .filter(candidate => !!candidate);
+    if (candidates.length !== 1) {
+      return null;
     } else {
-      return TauType._substituteIfNoCycles(substitution, this.name, other);
+      return candidates[0];
     }
   }
 }
@@ -438,6 +446,8 @@ export class UndefinedType extends IotaType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType) {
       return substitution;
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -466,6 +476,8 @@ export class UnknownType extends IotaType {
       return new ListType(UnknownType.INSTANCE).leq(other, substitution);
     } else if (other instanceof LambdaType) {
       return new LambdaType(UndefinedType.INSTANCE, UnknownType.INSTANCE).leq(other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -488,6 +500,8 @@ export class NullType extends IotaType {
   public leq(other: TauType, substitution: Substitution): Substitution | null {
     if (other instanceof UndefinedType || other instanceof NullType) {
       return substitution;
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -563,6 +577,8 @@ export class ObjectType extends TauType {
           return null;
         }
       }, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -625,6 +641,8 @@ export class ListType extends TauType {
       return ListType.PROTOTYPE.leq(this, other, substitution);
     } else if (other instanceof ListType) {
       return this.inner.leq(other.inner, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -650,6 +668,8 @@ export class BooleanType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return BooleanType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -675,6 +695,8 @@ export class ComplexType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return ComplexType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -704,6 +726,8 @@ export class RealType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return RealType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -734,6 +758,8 @@ export class RationalType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return RationalType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -765,6 +791,8 @@ export class IntegerType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return IntegerType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -797,6 +825,8 @@ export class NaturalType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return NaturalType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -822,6 +852,8 @@ export class StringType extends IotaType {
       return substitution;
     } else if (other instanceof ObjectType) {
       return StringType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
@@ -880,6 +912,8 @@ export class LambdaType extends TauType {
       } else {
         return null;
       }
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
     } else if (other instanceof VariableType) {
       return other.geq(this, substitution);
     } else {
