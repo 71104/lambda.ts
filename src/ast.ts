@@ -157,19 +157,11 @@ export class VariableNode implements NodeInterface {
 }
 
 export class LambdaNode implements NodeInterface {
-  public readonly type: TauType;
-
   public constructor(
     public readonly name: string,
-    type: TauType | null,
+    public readonly type: TauType | null,
     public readonly body: NodeInterface,
-  ) {
-    if (!type) {
-      this.type = new VariableType();
-    } else {
-      this.type = type;
-    }
-  }
+  ) {}
 
   public getFreeVariables(): Set<string> {
     const variables = this.body.getFreeVariables();
@@ -296,10 +288,13 @@ export class LetNode implements NodeInterface {
 
   public getType(context: TypeContext): TypeResults {
     const expression = this.expression.getType(context);
-    // TODO: check expression type against type constraints.
-    context = context.map((_, scheme) => scheme.substitute(expression.substitution));
+    let substitution = expression.substitution;
+    if (this.type) {
+      substitution = expression.type.leqOrThrow(this.type.instantiate(), substitution);
+    }
+    context = context.map((_, scheme) => scheme.substitute(substitution));
     const rest = this.rest.getType(context.push(this.name, expression.type.close(context)));
-    return new TypeResults(expression.substitution.add(rest.substitution), rest.type);
+    return new TypeResults(substitution.add(rest.substitution), rest.type);
   }
 
   public evaluate(context: ValueContext): ValueInterface {
