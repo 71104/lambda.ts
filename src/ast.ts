@@ -89,16 +89,7 @@ export class TemplateStringLiteral implements NodeInterface {
   }
 
   public evaluate(context: ValueContext): StringValue {
-    const strings = this.pieces.map(piece => {
-      const value = piece.evaluate(context);
-      if (value instanceof StringValue) {
-        return value.value;
-      } else {
-        throw new RuntimeError(
-          `all template string pieces must be strings, found ${piece.toString()}`,
-        );
-      }
-    });
+    const strings = this.pieces.map(piece => piece.evaluate(context).cast(StringValue));
     return new StringValue(strings.join(''));
   }
 }
@@ -285,12 +276,7 @@ export class ApplicationNode implements NodeInterface {
   }
 
   public evaluate(context: ValueContext): ValueInterface {
-    const left = this.left.evaluate(context);
-    if (left instanceof Closure) {
-      return left.apply(this.right.evaluate(context));
-    } else {
-      throw new RuntimeError('cannot apply a non-closure value');
-    }
+    return this.left.evaluate(context).cast(Closure).apply(this.right.evaluate(context));
   }
 }
 
