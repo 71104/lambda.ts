@@ -409,6 +409,9 @@ export class UnionType extends TauType {
   }
 
   public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof VariableType) {
+      return other.geq(this, substitution);
+    }
     for (const type of this.types) {
       const result = type.leq(other, substitution);
       if (result) {
