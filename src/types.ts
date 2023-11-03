@@ -317,7 +317,7 @@ export class VariableType extends TauType {
 
   public geq(other: TauType, substitution: Substitution): Substitution | null {
     if (substitution.has(this.name)) {
-      return other.leq(substitution.top(this.name), substitution);
+      return other.leq(this.substitute(substitution), substitution);
     } else {
       return TauType._substituteIfNoCycles(substitution, this.name, other);
     }
@@ -521,7 +521,7 @@ export class ObjectType extends TauType {
   private static _bindField(parent: TauType, field: TauType): TauType {
     const result = field.bindThis(parent, EMPTY_SUBSTITUTION);
     if (result) {
-      return result.type.substitute(result.substitution);
+      return result.type;
     } else {
       throw new TypeError(`cannot bind '${parent.toString()}' as 'this' in '${field.toString()}'`);
     }
