@@ -1,5 +1,6 @@
 import {
   ApplicationNode,
+  ComparisonNode,
   FieldNode,
   FixNode,
   IfNode,
@@ -296,6 +297,8 @@ export class Parser {
       }
       case 'curly-left':
         return this._parseObjectLiteral();
+      case 'equals':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'field':
         return FieldNode.create(this._lexer.step().substring(1));
       case 'identifier':
@@ -326,6 +329,7 @@ export class Parser {
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
       }
       case 'minus':
+      case 'not-equals':
       case 'plus':
         return FieldNode.createBinaryOperator(this._lexer.step());
       case 'real': {
@@ -415,17 +419,33 @@ export class Parser {
   }
 
   private _parse6(terminators: Token[]): NodeInterface {
+    const operatorTokens: Token[] = ['equals', 'not-equals'];
+    terminators = terminators.concat(operatorTokens);
+    const operands = [this._parse5(terminators)];
+    const operators: string[] = [];
+    while (operatorTokens.includes(this._lexer.token)) {
+      operators.push(this._lexer.step());
+      operands.push(this._parse5(terminators));
+    }
+    if (operands.length > 1) {
+      return new ComparisonNode(operands, operators);
+    } else {
+      return operands[0];
+    }
+  }
+
+  private _parse7(terminators: Token[]): NodeInterface {
     const terminatorsPlusDollar = terminators.concat('dollar');
-    let node = this._parse5(terminatorsPlusDollar);
+    let node = this._parse6(terminatorsPlusDollar);
     while (!terminators.includes(this._lexer.token)) {
       this._lexer.skip('dollar');
-      node = new ApplicationNode(node, this._parse5(terminatorsPlusDollar));
+      node = new ApplicationNode(node, this._parse6(terminatorsPlusDollar));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse6(terminators);
+    return this._parse7(terminators);
   }
 
   public parse(): NodeInterface {

@@ -8,6 +8,7 @@ import {
   TypeScheme,
 } from './types.js';
 import {
+  BooleanValue,
   ComplexValue,
   EMPTY_VALUE_CONTEXT,
   IntegerValue,
@@ -124,6 +125,72 @@ class Operator {
     }
   }
 }
+
+class ComparisonOperator {
+  private readonly _operator: Operator;
+
+  public constructor(public readonly name: string) {
+    this._operator = new Operator(name);
+  }
+
+  public impl<LHS extends ValueInterface, RHS extends ValueInterface>(
+    lhs: IotaTypeName,
+    rhs: IotaTypeName,
+    fn: (lhs: LHS, rhs: RHS) => boolean,
+  ): ComparisonOperator {
+    this._operator.impl<LHS, RHS, BooleanValue>(lhs, rhs, 'boolean', (lhs: LHS, rhs: RHS) =>
+      fn(lhs, rhs) ? BooleanValue.TRUE : BooleanValue.FALSE,
+    );
+    return this;
+  }
+
+  public close(): void {
+    this._operator.close();
+  }
+}
+
+new ComparisonOperator('==')
+  .impl('string', 'string', (lhs: StringValue, rhs: StringValue) => lhs.value === rhs.value)
+  .impl(
+    'complex',
+    'complex',
+    (lhs: ComplexValue, rhs: ComplexValue) =>
+      lhs.real === rhs.real && lhs.imaginary === rhs.imaginary,
+  )
+  .impl(
+    'complex',
+    'real',
+    (lhs: ComplexValue, rhs: RealValue) => lhs.real === rhs.value && lhs.imaginary === 0,
+  )
+  .impl(
+    'complex',
+    'rational',
+    (lhs: ComplexValue, rhs: RationalValue) =>
+      lhs.real === rhs.numerator / rhs.denominator && lhs.imaginary === 0,
+  )
+  .impl(
+    'complex',
+    'integer',
+    (lhs: ComplexValue, rhs: IntegerValue) => lhs.real === rhs.value && lhs.imaginary === 0,
+  )
+  .impl(
+    'complex',
+    'natural',
+    (lhs: ComplexValue, rhs: NaturalValue) => lhs.real === rhs.value && lhs.imaginary === 0,
+  )
+  // TODO
+  .close();
+
+new ComparisonOperator('!=')
+  .impl('string', 'string', (lhs: StringValue, rhs: StringValue) => lhs.value !== rhs.value)
+  .impl(
+    'complex',
+    'complex',
+    (lhs: ComplexValue, rhs: ComplexValue) =>
+      lhs.real !== rhs.real || lhs.imaginary !== rhs.imaginary,
+  )
+  // TODO
+  .close();
 
 new Operator('+')
   .impl(

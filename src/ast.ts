@@ -17,6 +17,7 @@ import {
   VariableType,
 } from './types.js';
 import {
+  BooleanValue,
   Closure,
   EMPTY_VALUE_CONTEXT,
   ListValue,
@@ -519,5 +520,74 @@ export class IfNode implements NodeInterface {
     } else {
       return this.elseExpression.evaluate(context);
     }
+  }
+}
+
+export class ComparisonNode implements NodeInterface {
+  public constructor(
+    public readonly operands: NodeInterface[],
+    public readonly operators: string[],
+  ) {
+    if (this.operators.length !== this.operands.length - 1) {
+      throw new InternalError('the number of operators must equal the number of operands minus 1');
+    }
+    if (this.operands.length < 2) {
+      throw new InternalError('comparison node needs at least 2 operands and 1 operator');
+    }
+  }
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.operands.map(operand => [...operand.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    let { substitution, type: operand } = this.operands[0].getType(context);
+    substitution = operand.leqOrThrow(
+      ObjectType.create({
+        [`#b1:${this.operators[0]}`]: new LambdaType(operand, new VariableType()),
+      }),
+      substitution,
+    );
+    operand = operand.substitute(substitution);
+    for (let i = 0; i < this.operators.length - 1; i++) {
+      context = context.map((_, scheme) => scheme.substitute(substitution));
+      const results = this.operands[i + 1].getType(context);
+      substitution = results.type.leqOrThrow(
+        ObjectType.create({
+          [`#b2:${operand.toString()}:${this.operators[i]}`]: new LambdaType(
+            results.type,
+            new LambdaType(new VariableType(), BooleanType.INSTANCE),
+          ),
+          [`#b1:${this.operators[i + 1]}`]: new LambdaType(results.type, new VariableType()),
+        }),
+        results.substitution,
+      );
+      operand = results.type;
+    }
+    context = context.map((_, scheme) => scheme.substitute(substitution));
+    const results = this.operands[this.operators.length].getType(context);
+    substitution = results.type.leqOrThrow(
+      ObjectType.create({
+        [`#b2:${operand.toString()}:${this.operators[this.operators.length - 1]}`]: new LambdaType(
+          results.type,
+          new LambdaType(new VariableType(), BooleanType.INSTANCE),
+        ),
+      }),
+      results.substitution,
+    );
+    return new TypeResults(substitution, BooleanType.INSTANCE);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const operands = this.operands.map(operand => operand.evaluate(context));
+    for (let i = 0; i < this.operators.length; i++) {
+      const operator = operands[i].getField('#b1:' + this.operators[i]).cast(Closure);
+      const value = operator.apply(operands[i + 1]).cast(BooleanValue);
+      if (!value.value) {
+        return BooleanValue.FALSE;
+      }
+    }
+    return BooleanValue.TRUE;
   }
 }

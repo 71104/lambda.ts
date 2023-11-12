@@ -9,6 +9,7 @@ export type Token =
   | 'curly-left'
   | 'curly-right'
   | 'dollar'
+  | 'equals'
   | 'fat-arrow'
   | 'field'
   | 'identifier'
@@ -33,6 +34,7 @@ export type Token =
   | 'keyword:undefined'
   | 'minus'
   | 'natural'
+  | 'not-equals'
   | 'pipe'
   | 'plus'
   | 'real'
@@ -92,7 +94,9 @@ export class Lexer {
 
     // two-character symbols
     ['arrow', /^->/],
+    ['equals', /^==/],
     ['fat-arrow', /^=>/],
+    ['not-equals', /^!=/],
 
     // single-character symbols
     ['assign', /^=/],
