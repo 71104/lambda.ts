@@ -1,4 +1,3 @@
-import { Context } from './context.js';
 import { InternalError, RuntimeError } from './errors.js';
 import {
   BooleanType,
@@ -405,11 +404,9 @@ export class FieldNode implements NodeInterface {
     const operand = context.top(this._operandName).instantiate();
     const field = new VariableType();
     const substitution = operand.leqOrThrow(
-      ObjectType.create(
-        Context.create<TauType>({
-          [this.name]: new LambdaType(ObjectType.EMPTY, field),
-        }),
-      ),
+      ObjectType.create({
+        [this.name]: new LambdaType(ObjectType.EMPTY, field),
+      }),
       EMPTY_SUBSTITUTION,
     );
     return new TypeResults(substitution, field.substitute(substitution));

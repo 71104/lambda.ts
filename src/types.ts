@@ -540,8 +540,8 @@ export class ObjectType extends TauType {
     }
   }
 
-  public static create(fields: Context<TauType>): ObjectType {
-    return new ObjectType(fields, /*bind=*/ true);
+  public static create(fields: { [name: string]: TauType }): ObjectType {
+    return new ObjectType(Context.create(fields), /*bind=*/ true);
   }
 
   public toString(): string {

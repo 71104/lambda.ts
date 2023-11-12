@@ -1,5 +1,4 @@
 import { LambdaNode, SemiNativeNode } from './ast.js';
-import { Context } from './context.js';
 import { RuntimeError } from './errors.js';
 import {
   BooleanType,
@@ -155,11 +154,9 @@ defineUnboundPrototype(ListType, ListValue, {
     new LambdaNode(
       '$1', // list
       new ListType(
-        ObjectType.create(
-          Context.create<TauType>({
-            str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE),
-          }),
-        ),
+        ObjectType.create({
+          str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE),
+        }),
       ),
       new LambdaNode(
         '$2', // separator
