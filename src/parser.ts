@@ -8,6 +8,8 @@ import {
   ListLiteralNode,
   LiteralNode,
   NodeInterface,
+  ObjectFieldNode,
+  ObjectLiteralNode,
   TemplateStringLiteral,
   VariableNode,
 } from './ast.js';
@@ -213,6 +215,23 @@ export class Parser {
     return this._parseLetInternal(terminators);
   }
 
+  private _parseObjectLiteral(): NodeInterface {
+    this._lexer.skip('curly-left');
+    const fields: ObjectFieldNode[] = [];
+    while (this._lexer.token !== 'curly-right') {
+      const name = this._lexer.expect('identifier-or-keyword');
+      this._lexer.skip('colon');
+      fields.push(new ObjectFieldNode(name, this._parseRoot(['comma', 'curly-right'])));
+      if (this._lexer.token !== 'comma') {
+        break;
+      } else {
+        this._lexer.next();
+      }
+    }
+    this._lexer.skip('curly-right');
+    return new ObjectLiteralNode(fields);
+  }
+
   private _parseList(): NodeInterface {
     this._lexer.skip('square-left');
     const elements: NodeInterface[] = [];
@@ -250,6 +269,8 @@ export class Parser {
         const imaginaryValue = parseFloat(this._lexer.step());
         return new LiteralNode(new ComplexValue(0, imaginaryValue), ComplexType.INSTANCE);
       }
+      case 'curly-left':
+        return this._parseObjectLiteral();
       case 'field':
         return FieldNode.create(this._lexer.step().substring(1));
       case 'identifier':

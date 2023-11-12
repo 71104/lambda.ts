@@ -19,6 +19,7 @@ import {
   Closure,
   EMPTY_VALUE_CONTEXT,
   ListValue,
+  ObjectValue,
   StringValue,
   ValueContext,
   ValueInterface,
@@ -90,6 +91,42 @@ export class TemplateStringLiteral implements NodeInterface {
   public evaluate(context: ValueContext): StringValue {
     const strings = this.pieces.map(piece => piece.evaluate(context).cast(StringValue));
     return new StringValue(strings.join(''));
+  }
+}
+
+export class ObjectFieldNode {
+  public constructor(
+    public readonly name: string,
+    public readonly value: NodeInterface,
+  ) {}
+}
+
+export class ObjectLiteralNode implements NodeInterface {
+  public constructor(public readonly fields: ObjectFieldNode[]) {}
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.fields.map(({ value }) => [...value.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    const hash: { [name: string]: TauType } = Object.create(null);
+    let substitution = EMPTY_SUBSTITUTION;
+    for (const { name, value } of this.fields) {
+      context = context.map((_, scheme) => scheme.substitute(substitution));
+      const results = value.getType(context);
+      substitution = substitution.add(results.substitution);
+      hash[name] = results.type;
+    }
+    return new TypeResults(substitution, ObjectType.create(hash));
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const hash: { [name: string]: ValueInterface } = Object.create(null);
+    for (const { name, value } of this.fields) {
+      hash[name] = value.evaluate(context);
+    }
+    return new ObjectValue(ValueContext.create(hash));
   }
 }
 

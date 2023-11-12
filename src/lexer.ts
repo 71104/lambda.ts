@@ -6,6 +6,8 @@ export type Token =
   | 'colon'
   | 'comma'
   | 'complex'
+  | 'curly-left'
+  | 'curly-right'
   | 'dollar'
   | 'fat-arrow'
   | 'field'
@@ -98,6 +100,8 @@ export class Lexer {
     ['bracket-right', /^\)/],
     ['colon', /^:/],
     ['comma', /^,/],
+    ['curly-left', /^\{/],
+    ['curly-right', /^\}/],
     ['dollar', /^\$/],
     ['minus', /^-/],
     ['pipe', /^\|/],
