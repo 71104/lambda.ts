@@ -166,7 +166,7 @@ new ComparisonOperator('==')
     'complex',
     'rational',
     (lhs: ComplexValue, rhs: RationalValue) =>
-      lhs.real === rhs.numerator / rhs.denominator && lhs.imaginary === 0,
+      lhs.real * rhs.denominator === rhs.numerator && lhs.imaginary === 0,
   )
   .impl(
     'complex',
@@ -178,7 +178,73 @@ new ComparisonOperator('==')
     'natural',
     (lhs: ComplexValue, rhs: NaturalValue) => lhs.real === rhs.value && lhs.imaginary === 0,
   )
-  // TODO
+  .impl(
+    'real',
+    'complex',
+    (lhs: RealValue, rhs: ComplexValue) => lhs.value === rhs.real && rhs.imaginary === 0,
+  )
+  .impl('real', 'real', (lhs: RealValue, rhs: RealValue) => lhs.value === rhs.value)
+  .impl(
+    'real',
+    'rational',
+    (lhs: RealValue, rhs: RationalValue) => lhs.value * rhs.denominator === rhs.numerator,
+  )
+  .impl('real', 'integer', (lhs: RealValue, rhs: IntegerValue) => lhs.value === rhs.value)
+  .impl('real', 'natural', (lhs: RealValue, rhs: NaturalValue) => lhs.value === rhs.value)
+  .impl(
+    'rational',
+    'complex',
+    (lhs: RationalValue, rhs: ComplexValue) =>
+      lhs.numerator === lhs.denominator * rhs.real && rhs.imaginary === 0,
+  )
+  .impl(
+    'rational',
+    'real',
+    (lhs: RationalValue, rhs: RealValue) => lhs.numerator === lhs.denominator * rhs.value,
+  )
+  .impl(
+    'rational',
+    'rational',
+    (lhs: RationalValue, rhs: RationalValue) =>
+      lhs.numerator * rhs.denominator === lhs.denominator * rhs.numerator,
+  )
+  .impl(
+    'rational',
+    'integer',
+    (lhs: RationalValue, rhs: IntegerValue) => lhs.numerator === lhs.denominator * rhs.value,
+  )
+  .impl(
+    'rational',
+    'natural',
+    (lhs: RationalValue, rhs: NaturalValue) => lhs.numerator === lhs.denominator * rhs.value,
+  )
+  .impl(
+    'integer',
+    'complex',
+    (lhs: IntegerValue, rhs: ComplexValue) => lhs.value === rhs.real && rhs.imaginary === 0,
+  )
+  .impl('integer', 'real', (lhs: IntegerValue, rhs: RealValue) => lhs.value === rhs.value)
+  .impl(
+    'integer',
+    'rational',
+    (lhs: IntegerValue, rhs: RationalValue) => lhs.value * rhs.denominator === rhs.numerator,
+  )
+  .impl('integer', 'integer', (lhs: IntegerValue, rhs: IntegerValue) => lhs.value === rhs.value)
+  .impl('integer', 'natural', (lhs: IntegerValue, rhs: NaturalValue) => lhs.value === rhs.value)
+  .impl(
+    'natural',
+    'complex',
+    (lhs: NaturalValue, rhs: ComplexValue) => lhs.value === rhs.real && rhs.imaginary === 0,
+  )
+  .impl('natural', 'real', (lhs: NaturalValue, rhs: RealValue) => lhs.value === rhs.value)
+  .impl(
+    'natural',
+    'rational',
+    (lhs: NaturalValue, rhs: RationalValue) => lhs.value * rhs.denominator === rhs.numerator,
+  )
+  .impl('natural', 'integer', (lhs: NaturalValue, rhs: IntegerValue) => lhs.value === rhs.value)
+  .impl('natural', 'natural', (lhs: NaturalValue, rhs: NaturalValue) => lhs.value === rhs.value)
+  .impl('boolean', 'boolean', (lhs: BooleanValue, rhs: BooleanValue) => lhs.value === rhs.value)
   .close();
 
 new ComparisonOperator('!=')
@@ -189,7 +255,94 @@ new ComparisonOperator('!=')
     (lhs: ComplexValue, rhs: ComplexValue) =>
       lhs.real !== rhs.real || lhs.imaginary !== rhs.imaginary,
   )
-  // TODO
+  .impl(
+    'complex',
+    'real',
+    (lhs: ComplexValue, rhs: RealValue) => lhs.real !== rhs.value || lhs.imaginary !== 0,
+  )
+  .impl(
+    'complex',
+    'rational',
+    (lhs: ComplexValue, rhs: RationalValue) =>
+      lhs.real * rhs.denominator !== rhs.numerator || lhs.imaginary !== 0,
+  )
+  .impl(
+    'complex',
+    'integer',
+    (lhs: ComplexValue, rhs: IntegerValue) => lhs.real !== rhs.value || lhs.imaginary !== 0,
+  )
+  .impl(
+    'complex',
+    'natural',
+    (lhs: ComplexValue, rhs: NaturalValue) => lhs.real !== rhs.value || lhs.imaginary !== 0,
+  )
+  .impl(
+    'real',
+    'complex',
+    (lhs: RealValue, rhs: ComplexValue) => lhs.value !== rhs.real || rhs.imaginary !== 0,
+  )
+  .impl('real', 'real', (lhs: RealValue, rhs: RealValue) => lhs.value !== rhs.value)
+  .impl(
+    'real',
+    'rational',
+    (lhs: RealValue, rhs: RationalValue) => lhs.value * rhs.denominator !== rhs.numerator,
+  )
+  .impl('real', 'integer', (lhs: RealValue, rhs: IntegerValue) => lhs.value !== rhs.value)
+  .impl('real', 'natural', (lhs: RealValue, rhs: NaturalValue) => lhs.value !== rhs.value)
+  .impl(
+    'rational',
+    'complex',
+    (lhs: RationalValue, rhs: ComplexValue) =>
+      lhs.numerator !== lhs.denominator * rhs.real || rhs.imaginary !== 0,
+  )
+  .impl(
+    'rational',
+    'real',
+    (lhs: RationalValue, rhs: RealValue) => lhs.numerator !== lhs.denominator * rhs.value,
+  )
+  .impl(
+    'rational',
+    'rational',
+    (lhs: RationalValue, rhs: RationalValue) =>
+      lhs.numerator * rhs.denominator !== lhs.denominator * rhs.numerator,
+  )
+  .impl(
+    'rational',
+    'integer',
+    (lhs: RationalValue, rhs: IntegerValue) => lhs.numerator !== lhs.denominator * rhs.value,
+  )
+  .impl(
+    'rational',
+    'natural',
+    (lhs: RationalValue, rhs: NaturalValue) => lhs.numerator !== lhs.denominator * rhs.value,
+  )
+  .impl(
+    'integer',
+    'complex',
+    (lhs: IntegerValue, rhs: ComplexValue) => lhs.value !== rhs.real || rhs.imaginary !== 0,
+  )
+  .impl('integer', 'real', (lhs: IntegerValue, rhs: RealValue) => lhs.value !== rhs.value)
+  .impl(
+    'integer',
+    'rational',
+    (lhs: IntegerValue, rhs: RationalValue) => lhs.value * rhs.denominator !== rhs.numerator,
+  )
+  .impl('integer', 'integer', (lhs: IntegerValue, rhs: IntegerValue) => lhs.value !== rhs.value)
+  .impl('integer', 'natural', (lhs: IntegerValue, rhs: NaturalValue) => lhs.value !== rhs.value)
+  .impl(
+    'natural',
+    'complex',
+    (lhs: NaturalValue, rhs: ComplexValue) => lhs.value !== rhs.real || rhs.imaginary !== 0,
+  )
+  .impl('natural', 'real', (lhs: NaturalValue, rhs: RealValue) => lhs.value !== rhs.value)
+  .impl(
+    'natural',
+    'rational',
+    (lhs: NaturalValue, rhs: RationalValue) => lhs.value * rhs.denominator !== rhs.numerator,
+  )
+  .impl('natural', 'integer', (lhs: NaturalValue, rhs: IntegerValue) => lhs.value !== rhs.value)
+  .impl('natural', 'natural', (lhs: NaturalValue, rhs: NaturalValue) => lhs.value !== rhs.value)
+  .impl('boolean', 'boolean', (lhs: BooleanValue, rhs: BooleanValue) => lhs.value !== rhs.value)
   .close();
 
 new Operator('+')
