@@ -534,7 +534,7 @@ export class ObjectType extends TauType {
   private constructor(fields: Context<TauType>, bind: boolean) {
     super();
     if (bind) {
-      this.fields = ObjectType._bindFields(this, fields);
+      this.fields = ObjectType._bindFields(ObjectType.EMPTY, fields);
     } else {
       this.fields = fields;
     }
