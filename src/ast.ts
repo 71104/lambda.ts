@@ -545,7 +545,7 @@ export class ComparisonNode implements NodeInterface {
     let { substitution, type: operand } = this.operands[0].getType(context);
     substitution = operand.leqOrThrow(
       ObjectType.create({
-        [`#b1:${this.operators[0]}`]: new LambdaType(operand, new VariableType()),
+        [`#b1:${this.operators[0]}`]: new LambdaType(ObjectType.EMPTY, new VariableType()),
       }),
       substitution,
     );
@@ -556,10 +556,10 @@ export class ComparisonNode implements NodeInterface {
       substitution = results.type.leqOrThrow(
         ObjectType.create({
           [`#b2:${operand.toString()}:${this.operators[i]}`]: new LambdaType(
-            results.type,
+            ObjectType.EMPTY,
             new LambdaType(new VariableType(), BooleanType.INSTANCE),
           ),
-          [`#b1:${this.operators[i + 1]}`]: new LambdaType(results.type, new VariableType()),
+          [`#b1:${this.operators[i + 1]}`]: new LambdaType(ObjectType.EMPTY, new VariableType()),
         }),
         results.substitution,
       );
@@ -570,7 +570,7 @@ export class ComparisonNode implements NodeInterface {
     substitution = results.type.leqOrThrow(
       ObjectType.create({
         [`#b2:${operand.toString()}:${this.operators[this.operators.length - 1]}`]: new LambdaType(
-          results.type,
+          ObjectType.EMPTY,
           new LambdaType(new VariableType(), BooleanType.INSTANCE),
         ),
       }),
