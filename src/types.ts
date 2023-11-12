@@ -218,7 +218,7 @@ export class TypeScheme {
     this.names.forEach(name => {
       hash[name] = new VariableType();
     });
-    return this.type.substitute(Substitution.create<TauType>(hash));
+    return this.type.substitute(Substitution.create(hash));
   }
 
   /**
@@ -244,7 +244,7 @@ export class TypeScheme {
     });
     return new TypeScheme(
       this.names.map((_name: string, index: number) => `$${index + 1}`),
-      this.type.substitute(Substitution.create<TauType>(hash)),
+      this.type.substitute(Substitution.create(hash)),
     );
   }
 }

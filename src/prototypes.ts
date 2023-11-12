@@ -56,10 +56,8 @@ function definePrototype(
       values[name] = terms[name].value;
     }
   }
-  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create<TypeScheme>(types));
-  ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
-    ValueContext.create<ValueInterface>(values),
-  );
+  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create(types));
+  ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(ValueContext.create(values));
 }
 
 function defineUnboundPrototype(
@@ -75,10 +73,8 @@ function defineUnboundPrototype(
       values[name] = terms[name].value;
     }
   }
-  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create<TypeScheme>(types));
-  ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
-    ValueContext.create<ValueInterface>(values),
-  );
+  TypeConstructor.PROTOTYPE = new Prototype(TypeContext.create(types));
+  ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(ValueContext.create(values));
 }
 
 function method0<Arg0 extends ValueInterface>(

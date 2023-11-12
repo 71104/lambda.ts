@@ -116,15 +116,11 @@ class Operator {
       const TypeConstructor = IOTA_TYPE_CONSTRUCTORS[type] as unknown as {
         PROTOTYPE: Prototype;
       };
-      TypeConstructor.PROTOTYPE = TypeConstructor.PROTOTYPE.add(
-        TypeContext.create<TypeScheme>(types),
-      );
+      TypeConstructor.PROTOTYPE = TypeConstructor.PROTOTYPE.add(TypeContext.create(types));
       const ValueConstructor = VALUE_CONSTRUCTORS[type] as unknown as {
         PROTOTYPE: ValueContext;
       };
-      ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(
-        ValueContext.create<ValueInterface>(values),
-      );
+      ValueConstructor.PROTOTYPE = ValueConstructor.PROTOTYPE.add(ValueContext.create(values));
     }
   }
 }
