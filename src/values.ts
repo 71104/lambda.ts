@@ -259,6 +259,42 @@ export class ListValue implements ValueInterface {
   }
 }
 
+export class TupleValue implements ValueInterface {
+  public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
+
+  public constructor(public readonly elements: ValueInterface[]) {}
+
+  public toString(): string {
+    return `(${this.elements.map(element => element.toString()).join(', ')})`;
+  }
+
+  public cast<ValueType extends ValueInterface>(
+    valueConstructor: ValueConstructor<ValueType>,
+  ): ValueType {
+    if (valueConstructor !== (TupleValue as unknown as ValueConstructor<ValueType>)) {
+      throw new RuntimeError(`expected tuple value`);
+    } else {
+      return this as unknown as ValueType;
+    }
+  }
+
+  public bindThis(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (TupleValue.PROTOTYPE.has(name)) {
+      return TupleValue.PROTOTYPE.top(name).bindThis(this);
+    } else {
+      throw new RuntimeError(`cannot read field ${JSON.stringify(name)} of tuple`);
+    }
+  }
+
+  public marshal(): unknown[] {
+    return this.elements.map(element => element.marshal());
+  }
+}
+
 export class BooleanValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
   public static readonly FALSE = new BooleanValue(false);

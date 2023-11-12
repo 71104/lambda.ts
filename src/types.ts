@@ -654,6 +654,63 @@ export class ListType extends TauType {
   }
 }
 
+export class TupleType extends TauType {
+  public static readonly PROTOTYPE = Prototype.EMPTY;
+
+  public constructor(public readonly elements: TauType[]) {
+    super();
+  }
+
+  public toString(): string {
+    return `(${this.elements.map(element => element.toString()).join(', ')})`;
+  }
+
+  public getFreeVariables(): Map<string, VariableType> {
+    const result = new Map<string, VariableType>();
+    for (const element of this.elements) {
+      for (const [name, variable] of element.getFreeVariables()) {
+        result.set(name, variable);
+      }
+    }
+    return result;
+  }
+
+  public substitute(substitution: Substitution): TupleType {
+    return new TupleType(this.elements.map(element => element.substitute(substitution)));
+  }
+
+  public bindThis(_thisType: TauType, substitution: Substitution): TypeResults {
+    return new TypeResults(substitution, this);
+  }
+
+  public leq(other: TauType, substitution: Substitution): Substitution | null {
+    if (other instanceof UndefinedType) {
+      return substitution;
+    } else if (other instanceof ObjectType) {
+      return TupleType.PROTOTYPE.leq(this, other, substitution);
+    } else if (other instanceof TupleType) {
+      if (other.elements.length !== this.elements.length) {
+        return null;
+      }
+      for (let i = 0; i < this.elements.length; i++) {
+        const result = this.elements[i].leq(other.elements[i], substitution);
+        if (result) {
+          substitution = result;
+        } else {
+          return null;
+        }
+      }
+      return substitution;
+    } else if (other instanceof UnionType) {
+      return other.geq(this, substitution);
+    } else if (other instanceof VariableType) {
+      return other.geq(this, substitution);
+    } else {
+      return null;
+    }
+  }
+}
+
 export class BooleanType extends IotaType {
   public static readonly PROTOTYPE = Prototype.EMPTY;
   public static readonly INSTANCE = new BooleanType();

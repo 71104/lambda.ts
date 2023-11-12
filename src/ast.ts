@@ -8,6 +8,7 @@ import {
   ObjectType,
   StringType,
   TauType,
+  TupleType,
   TypeContext,
   TypeResults,
   TypeScheme,
@@ -21,6 +22,7 @@ import {
   ListValue,
   ObjectValue,
   StringValue,
+  TupleValue,
   ValueContext,
   ValueInterface,
   unmarshal,
@@ -157,6 +159,31 @@ export class ListLiteralNode implements NodeInterface {
   public evaluate(context: ValueContext): ValueInterface {
     const elements = this.elements.map(element => element.evaluate(context));
     return new ListValue(elements, 0, elements.length);
+  }
+}
+
+export class TupleLiteralNode implements NodeInterface {
+  public constructor(public readonly elements: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.elements.map(element => [...element.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(context: TypeContext): TypeResults {
+    let substitution = EMPTY_SUBSTITUTION;
+    const elements: TauType[] = [];
+    for (const element of this.elements) {
+      context = context.map((_, scheme) => scheme.substitute(substitution));
+      const results = element.getType(context);
+      substitution = substitution.add(results.substitution);
+      elements.push(results.type);
+    }
+    return new TypeResults(substitution, new TupleType(elements));
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    return new TupleValue(this.elements.map(element => element.evaluate(context)));
   }
 }
 

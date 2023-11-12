@@ -11,6 +11,7 @@ import {
   ObjectFieldNode,
   ObjectLiteralNode,
   TemplateStringLiteral,
+  TupleLiteralNode,
   VariableNode,
 } from './ast.js';
 import { InternalError, SyntaxError } from './errors.js';
@@ -59,6 +60,34 @@ export class Parser {
 
   public constructor(input: string) {
     this._lexer = new Lexer(input);
+  }
+
+  private _parseSubTermOrTuple(): NodeInterface {
+    this._lexer.next();
+    if (this._lexer.token === 'bracket-right') {
+      this._lexer.step();
+      return new TupleLiteralNode([]);
+    }
+    const first = this._parseRoot(['comma', 'bracket-right']);
+    // @ts-expect-error
+    if (this._lexer.token !== 'bracket-right') {
+      this._lexer.skip('comma');
+      const elements = [first];
+      // @ts-expect-error
+      while (this._lexer.token !== 'bracket-right') {
+        elements.push(this._parseRoot(['comma', 'bracket-right']));
+        if (this._lexer.token !== 'comma') {
+          break;
+        } else {
+          this._lexer.next();
+        }
+      }
+      this._lexer.skip('bracket-right');
+      return new TupleLiteralNode(elements);
+    } else {
+      this._lexer.next();
+      return first;
+    }
   }
 
   private _parseType(): TauType {
@@ -259,12 +288,8 @@ export class Parser {
 
   private _parse0(terminators: Token[]): NodeInterface {
     switch (this._lexer.token) {
-      case 'bracket-left': {
-        this._lexer.next();
-        const inner = this._parseRoot(['bracket-right']);
-        this._lexer.skip('bracket-right');
-        return inner;
-      }
+      case 'bracket-left':
+        return this._parseSubTermOrTuple();
       case 'complex': {
         const imaginaryValue = parseFloat(this._lexer.step());
         return new LiteralNode(new ComplexValue(0, imaginaryValue), ComplexType.INSTANCE);
