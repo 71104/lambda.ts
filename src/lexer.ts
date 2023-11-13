@@ -32,6 +32,7 @@ export type Token =
   | 'keyword:then'
   | 'keyword:true'
   | 'keyword:undefined'
+  | 'less-than'
   | 'minus'
   | 'natural'
   | 'not-equals'
@@ -107,6 +108,7 @@ export class Lexer {
     ['curly-left', /^\{/],
     ['curly-right', /^\}/],
     ['dollar', /^\$/],
+    ['less-than', /^</],
     ['minus', /^-/],
     ['pipe', /^\|/],
     ['plus', /^\+/],

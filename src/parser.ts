@@ -328,6 +328,7 @@ export class Parser {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
       }
+      case 'less-than':
       case 'minus':
       case 'not-equals':
       case 'plus':
@@ -419,7 +420,7 @@ export class Parser {
   }
 
   private _parse6(terminators: Token[]): NodeInterface {
-    const operatorTokens: Token[] = ['equals', 'not-equals'];
+    const operatorTokens: Token[] = ['equals', 'not-equals', 'less-than'];
     terminators = terminators.concat(operatorTokens);
     const operands = [this._parse5(terminators)];
     const operators: string[] = [];

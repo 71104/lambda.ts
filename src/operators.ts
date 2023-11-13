@@ -345,6 +345,55 @@ new ComparisonOperator('!=')
   .impl('boolean', 'boolean', (lhs: BooleanValue, rhs: BooleanValue) => lhs.value !== rhs.value)
   .close();
 
+new ComparisonOperator('<')
+  .impl('string', 'string', (lhs: StringValue, rhs: StringValue) => lhs.value < rhs.value)
+  .impl('real', 'real', (lhs: RealValue, rhs: RealValue) => lhs.value < rhs.value)
+  .impl('real', 'rational', (lhs: RealValue, rhs: RationalValue) =>
+    rhs.denominator < 0
+      ? lhs.value * rhs.denominator > rhs.numerator
+      : lhs.value * rhs.denominator < rhs.numerator,
+  )
+  .impl('real', 'integer', (lhs: RealValue, rhs: IntegerValue) => lhs.value < rhs.value)
+  .impl('real', 'natural', (lhs: RealValue, rhs: NaturalValue) => lhs.value < rhs.value)
+  .impl('rational', 'real', (lhs: RationalValue, rhs: RealValue) =>
+    lhs.denominator < 0
+      ? lhs.numerator > lhs.denominator * rhs.value
+      : lhs.numerator < lhs.denominator * rhs.value,
+  )
+  .impl('rational', 'rational', (lhs: RationalValue, rhs: RationalValue) =>
+    lhs.denominator * rhs.denominator < 0
+      ? lhs.numerator * rhs.denominator > lhs.denominator * rhs.numerator
+      : lhs.numerator * rhs.denominator < lhs.denominator * rhs.numerator,
+  )
+  .impl('rational', 'integer', (lhs: RationalValue, rhs: IntegerValue) =>
+    lhs.denominator < 0
+      ? lhs.numerator > lhs.denominator * rhs.value
+      : lhs.numerator < lhs.denominator * rhs.value,
+  )
+  .impl('rational', 'natural', (lhs: RationalValue, rhs: NaturalValue) =>
+    lhs.denominator < 0
+      ? lhs.numerator > lhs.denominator * rhs.value
+      : lhs.numerator < lhs.denominator * rhs.value,
+  )
+  .impl('integer', 'real', (lhs: IntegerValue, rhs: RealValue) => lhs.value < rhs.value)
+  .impl('integer', 'rational', (lhs: IntegerValue, rhs: RationalValue) =>
+    rhs.denominator < 0
+      ? lhs.value * rhs.denominator > rhs.numerator
+      : lhs.value * rhs.denominator < rhs.numerator,
+  )
+  .impl('integer', 'integer', (lhs: IntegerValue, rhs: IntegerValue) => lhs.value < rhs.value)
+  .impl('integer', 'natural', (lhs: IntegerValue, rhs: NaturalValue) => lhs.value < rhs.value)
+  .impl('natural', 'real', (lhs: NaturalValue, rhs: RealValue) => lhs.value < rhs.value)
+  .impl('natural', 'rational', (lhs: NaturalValue, rhs: RationalValue) =>
+    rhs.denominator < 0
+      ? lhs.value * rhs.denominator > rhs.numerator
+      : lhs.value * rhs.denominator < rhs.numerator,
+  )
+  .impl('natural', 'integer', (lhs: NaturalValue, rhs: IntegerValue) => lhs.value < rhs.value)
+  .impl('natural', 'natural', (lhs: NaturalValue, rhs: NaturalValue) => lhs.value < rhs.value)
+  .impl('boolean', 'boolean', (lhs: BooleanValue, rhs: BooleanValue) => lhs.value < rhs.value)
+  .close();
+
 new Operator('+')
   .impl(
     'string',
