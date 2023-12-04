@@ -26,6 +26,14 @@ export interface NodeInterface {
    */
   getFreeVariables(): Set<string>;
 
+  /**
+   * Calculates the principal type of this term (as per Hindley-Milner-Damas) and returns it in a
+   * `TypingResults` object along with constraints requirements and type variable substitution.
+   *
+   * @param context The context in which the term is typed.
+   * @param constraints Pre-existing constraint requirements on type variables.
+   * @param substitution Pre-existing type variable substitution.
+   */
   getType(
     context: TypeContext,
     constraints: Constraints,

@@ -387,7 +387,28 @@ export class ObjectType extends TauType {
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      // TODO
+      const hash: { [name: string]: TauType } = Object.create(null);
+      this._fields.forEach((name, type) => {
+        if (other._fields.has(name)) {
+          ({
+            type: hash[name],
+            constraints,
+            substitution,
+          } = type.intersect(other._fields.top(name), constraints, substitution));
+        } else {
+          hash[name] = type;
+        }
+      });
+      other._fields.forEach((name, type) => {
+        if (!this._fields.has(name)) {
+          hash[name] = type;
+        }
+      });
+      return new TypingResults(
+        ObjectType.create(hash).substitute(substitution),
+        constraints,
+        substitution,
+      );
     } else if (other instanceof UnknownType) {
       ({ constraints, substitution } = other.leq(this, constraints, substitution));
       return new TypingResults(this.substitute(substitution), constraints, substitution);
