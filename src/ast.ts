@@ -140,7 +140,7 @@ export class VariableNode implements NodeInterface {
     if (context.has(this.name)) {
       return context.top(this.name);
     } else {
-      throw new RuntimeError(`undefined variable ${JSON.stringify(name)}`);
+      throw new RuntimeError(`undefined variable ${JSON.stringify(this.name)}`);
     }
   }
 }

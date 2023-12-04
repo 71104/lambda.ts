@@ -198,7 +198,7 @@ export class VariableType extends TauType {
     } else {
       const field = VariableType.getNew();
       ({ constraints, substitution } = this.leq(
-        new LambdaType(thisType, field),
+        new LambdaType(ObjectType.EMPTY, field),
         constraints,
         substitution,
       ));
@@ -423,6 +423,8 @@ export class FieldSet {
 }
 
 export class ObjectType extends TauType {
+  public static readonly EMPTY = new ObjectType(new FieldSet());
+
   private constructor(private readonly _fields: FieldSet) {
     super();
   }
