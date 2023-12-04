@@ -1,8 +1,10 @@
 import { InternalError, RuntimeError } from './errors.js';
 import {
+  BooleanType,
   Constraints,
   IotaType,
   LambdaType,
+  ListType,
   ObjectType,
   Substitution,
   TauType,
@@ -15,6 +17,7 @@ import {
 import {
   Closure,
   EMPTY_VALUE_CONTEXT,
+  ListValue,
   ObjectValue,
   ValueContext,
   ValueInterface,
@@ -116,6 +119,42 @@ export class ObjectLiteralNode implements NodeInterface {
       hash[name] = value.evaluate(context);
     }
     return new ObjectValue(ValueContext.create(hash));
+  }
+}
+
+export class ListLiteralNode implements NodeInterface {
+  public constructor(public readonly elements: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    const sets = this.elements.map(element => [...element.getFreeVariables()]);
+    return new Set<string>(sets.flat());
+  }
+
+  public getType(
+    context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const inner = this.elements.reduce<TauType>((result, element) => {
+      let type: TauType;
+      ({ type, constraints, substitution } = element.getType(context, constraints, substitution));
+      ({
+        type: result,
+        constraints,
+        substitution,
+      } = TauType.max(result, type, constraints, substitution));
+      return result;
+    }, UnknownType.INSTANCE);
+    return new TypingResults(
+      new ListType(inner.substitute(substitution)),
+      constraints,
+      substitution,
+    );
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const elements = this.elements.map(element => element.evaluate(context));
+    return new ListValue(elements, 0, elements.length);
   }
 }
 
@@ -459,5 +498,61 @@ export class FixNode implements NodeInterface {
 
   public evaluate(): Closure {
     return FixNode._VALUE;
+  }
+}
+
+export class IfNode implements NodeInterface {
+  public constructor(
+    public readonly condition: NodeInterface,
+    public readonly thenExpression: NodeInterface,
+    public readonly elseExpression: NodeInterface,
+  ) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>([
+      ...this.condition.getFreeVariables(),
+      ...this.thenExpression.getFreeVariables(),
+      ...this.elseExpression.getFreeVariables(),
+    ]);
+  }
+
+  public getType(
+    context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    let condition: TauType;
+    ({
+      type: condition,
+      constraints,
+      substitution,
+    } = this.condition.getType(context, constraints, substitution));
+    ({ constraints, substitution } = condition.leq(
+      BooleanType.INSTANCE,
+      constraints,
+      substitution,
+    ));
+    let thenExpression: TauType;
+    ({
+      type: thenExpression,
+      constraints,
+      substitution,
+    } = this.thenExpression.getType(context, constraints, substitution));
+    let elseExpression: TauType;
+    ({
+      type: elseExpression,
+      constraints,
+      substitution,
+    } = this.elseExpression.getType(context, constraints, substitution));
+    return TauType.max(thenExpression, elseExpression, constraints, substitution);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const condition = this.condition.evaluate(context);
+    if (condition.marshal()) {
+      return this.thenExpression.evaluate(context);
+    } else {
+      return this.elseExpression.evaluate(context);
+    }
   }
 }

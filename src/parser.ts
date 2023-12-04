@@ -2,8 +2,10 @@ import {
   ApplicationNode,
   FieldNode,
   FixNode,
+  IfNode,
   LambdaNode,
   LetNode,
+  ListLiteralNode,
   LiteralNode,
   NodeInterface,
   ObjectFieldNode,
@@ -164,6 +166,31 @@ export class Parser {
     return new ObjectLiteralNode(fields);
   }
 
+  private _parseList(): NodeInterface {
+    this._lexer.skip('square-left');
+    const elements: NodeInterface[] = [];
+    while ('square-right' !== this._lexer.token) {
+      elements.push(this._parseRoot(['comma', 'square-right']));
+      if ('comma' !== this._lexer.token) {
+        break;
+      } else {
+        this._lexer.next();
+      }
+    }
+    this._lexer.skip('square-right');
+    return new ListLiteralNode(elements);
+  }
+
+  private _parseIf(terminators: Token[]): NodeInterface {
+    this._lexer.skip('keyword:if');
+    const condition = this._parseRoot(['keyword:then']);
+    this._lexer.skip('keyword:then');
+    const thenExpression = this._parseRoot(['keyword:else']);
+    this._lexer.skip('keyword:else');
+    const elseExpression = this._parseRoot(terminators);
+    return new IfNode(condition, thenExpression, elseExpression);
+  }
+
   private _parse0(terminators: Token[]): NodeInterface {
     switch (this._lexer.token) {
       case 'bracket-left': {
@@ -190,6 +217,8 @@ export class Parser {
         return FixNode.INSTANCE;
       case 'keyword:fn':
         return this._parseLambda(terminators);
+      case 'keyword:if':
+        return this._parseIf(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
       case 'keyword:true':
@@ -206,6 +235,8 @@ export class Parser {
         const realValue = parseFloat(this._lexer.step());
         return new LiteralNode(new RealValue(realValue), RealType.INSTANCE);
       }
+      case 'square-left':
+        return this._parseList();
       case 'string': {
         const label = this._lexer.step();
         const stringValue = unescapeString(label.slice(1, -1));

@@ -108,6 +108,60 @@ export abstract class TauType implements TypeInterface {
     substitution: Substitution,
   ): Environment;
 
+  public leqNoThrow(
+    other: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): Environment | null {
+    try {
+      return this.leq(other, constraints, substitution);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        return null;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  public static min(
+    first: TauType,
+    second: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const leftToRightAttempt = first.leqNoThrow(second, constraints, substitution);
+    if (leftToRightAttempt) {
+      ({ constraints, substitution } = leftToRightAttempt);
+      return new TypingResults(first.substitute(substitution), constraints, substitution);
+    }
+    const rightToLeftAttempt = second.leqNoThrow(first, constraints, substitution);
+    if (rightToLeftAttempt) {
+      ({ constraints, substitution } = rightToLeftAttempt);
+      return new TypingResults(second.substitute(substitution), constraints, substitution);
+    }
+    throw first._intersectionFailure(second);
+  }
+
+  public static max(
+    first: TauType,
+    second: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const leftToRightAttempt = first.leqNoThrow(second, constraints, substitution);
+    if (leftToRightAttempt) {
+      ({ constraints, substitution } = leftToRightAttempt);
+      return new TypingResults(second.substitute(substitution), constraints, substitution);
+    }
+    const rightToLeftAttempt = second.leqNoThrow(first, constraints, substitution);
+    if (rightToLeftAttempt) {
+      ({ constraints, substitution } = rightToLeftAttempt);
+      return new TypingResults(first.substitute(substitution), constraints, substitution);
+    }
+    throw first._intersectionFailure(second);
+  }
+
   public close(context: TypeContext): TypeInterface {
     const freeVariables = context.reduce<Set<string>>(
       (variables, _name, type) => new Set<string>([...variables, ...type.getFreeVariables()]),
@@ -474,13 +528,13 @@ export class ObjectType extends TauType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof NullType) {
+      throw this._intersectionFailure(other);
     } else if (other instanceof ObjectType) {
       return this._fields.intersect(other._fields, constraints, substitution);
-    } else if (other instanceof UnknownType) {
+    } else {
       ({ constraints, substitution } = other.leq(this, constraints, substitution));
       return new TypingResults(this.substitute(substitution), constraints, substitution);
-    } else {
-      throw this._intersectionFailure(other);
     }
   }
 
@@ -493,6 +547,83 @@ export class ObjectType extends TauType {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
       return this._fields.leq(this, fields, constraints, substitution);
+    } else {
+      throw this._unificationFailure(other);
+    }
+  }
+}
+
+export class ListType extends TauType {
+  public static readonly PROTOTYPE = new FieldSet();
+
+  public constructor(public readonly inner: TauType) {
+    super();
+  }
+
+  public toString(): string {
+    return `(${this.inner})[]`;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return this.inner.getFreeVariables();
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    return new ListType(this.inner.substitute(substitution));
+  }
+
+  public bindThis(
+    _thisType: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return new TypingResults(this, constraints, substitution);
+  }
+
+  public getField(
+    name: string,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return ListType.PROTOTYPE.getField(this, name, constraints, substitution);
+  }
+
+  public intersect(
+    other: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    if (other instanceof VariableType) {
+      return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof ObjectType) {
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof ListType) {
+      let inner: TauType;
+      ({
+        type: inner,
+        constraints,
+        substitution,
+      } = this.inner.intersect(other.inner, constraints, substitution));
+      return new TypingResults(new ListType(inner), constraints, substitution);
+    } else {
+      throw this._intersectionFailure(other);
+    }
+  }
+
+  public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
+    if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof ObjectType) {
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return ListType.PROTOTYPE.leq(this, fields, constraints, substitution);
+    } else if (other instanceof ListType) {
+      return this.inner.leq(other.inner, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -644,6 +775,8 @@ export class UnknownType extends IotaType {
           UnknownType.INSTANCE.leq(type, constraints, substitution),
         new Environment(constraints, substitution),
       );
+    } else if (other instanceof ListType) {
+      return new ListType(UnknownType.INSTANCE).leq(other, constraints, substitution);
     } else if (other instanceof LambdaType) {
       return new LambdaType(UndefinedType.INSTANCE, UnknownType.INSTANCE).leq(
         other,
