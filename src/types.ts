@@ -317,17 +317,12 @@ export class VariableType extends TauType {
   }
 }
 
-export class ObjectType extends TauType {
-  private constructor(private readonly _fields: Context<TauType>) {
-    super();
-  }
+export class FieldSet {
+  public constructor(private _fields: Context<TauType> = Context.create<TauType>()) {}
 
-  public static create(fields: { [name: string]: TauType }): ObjectType {
-    return new ObjectType(Context.create(fields));
-  }
-
-  public toString(): string {
-    return `{${this._fields.toArray((name, type) => `${name}: ${type}`).join(', ')}}`;
+  public add(fields: { [name: string]: TauType }): FieldSet {
+    this._fields = this._fields.pushAll(fields);
+    return this;
   }
 
   public getFreeVariables(): Set<string> {
@@ -337,8 +332,115 @@ export class ObjectType extends TauType {
     );
   }
 
+  public substitute(substitution: Substitution): FieldSet {
+    return new FieldSet(this._fields.map((_name, type) => type.substitute(substitution)));
+  }
+
+  public getField(
+    parent: TauType,
+    name: string,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    if (this._fields.has(name)) {
+      return this._fields.top(name).bindThis(parent, constraints, substitution);
+    } else {
+      throw new TypeError(`'${parent}' has no field named ${JSON.stringify(name)}`);
+    }
+  }
+
+  public bind(
+    parent: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): FieldBindingResults {
+    const hash = this._fields.reduce<{ [name: string]: TauType }>((hash, name, type) => {
+      ({
+        type: hash[name],
+        constraints,
+        substitution,
+      } = type.bindThis(parent, constraints, substitution));
+      return hash;
+    }, Object.create(null));
+    return new FieldBindingResults(
+      Context.create<TauType>(hash).map((_name, type) => type.substitute(substitution)),
+      constraints,
+      substitution,
+    );
+  }
+
+  public intersect(
+    other: FieldSet,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const hash: { [name: string]: TauType } = Object.create(null);
+    this._fields.forEach((name, type) => {
+      if (other._fields.has(name)) {
+        ({
+          type: hash[name],
+          constraints,
+          substitution,
+        } = type.intersect(other._fields.top(name), constraints, substitution));
+      } else {
+        hash[name] = type;
+      }
+    });
+    other._fields.forEach((name, type) => {
+      if (!this._fields.has(name)) {
+        hash[name] = type;
+      }
+    });
+    return new TypingResults(
+      ObjectType.create(hash).substitute(substitution),
+      constraints,
+      substitution,
+    );
+  }
+
+  public leq(
+    parent: TauType,
+    other: Context<TauType>,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): Environment {
+    return other.reduce<Environment>(
+      ({ constraints, substitution }, name, type) => {
+        if (!this._fields.has(name)) {
+          throw new TypeError(`'${parent}' doesn't have a field named ${JSON.stringify(name)}`);
+        }
+        let field: TauType;
+        ({
+          type: field,
+          constraints,
+          substitution,
+        } = this._fields.top(name).bindThis(parent, constraints, substitution));
+        return field.leq(type, constraints, substitution);
+      },
+      new Environment(constraints, substitution),
+    );
+  }
+}
+
+export class ObjectType extends TauType {
+  private constructor(private readonly _fields: FieldSet) {
+    super();
+  }
+
+  public static create(fields: { [name: string]: TauType }): ObjectType {
+    return new ObjectType(new FieldSet(Context.create(fields)));
+  }
+
+  public toString(): string {
+    return `object`;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return this._fields.getFreeVariables();
+  }
+
   public substitute(substitution: Substitution): TauType {
-    return new ObjectType(this._fields.map((_name, type) => type.substitute(substitution)));
+    return new ObjectType(this._fields.substitute(substitution));
   }
 
   public bindThis(
@@ -354,27 +456,11 @@ export class ObjectType extends TauType {
     constraints: Constraints,
     substitution: Substitution,
   ): TypingResults {
-    if (this._fields.has(name)) {
-      return this._fields.top(name).bindThis(this, constraints, substitution);
-    } else {
-      throw this._fieldAccessFailure(name);
-    }
+    return this._fields.getField(this, name, constraints, substitution);
   }
 
   public bindFields(constraints: Constraints, substitution: Substitution): FieldBindingResults {
-    const hash = this._fields.reduce<{ [name: string]: TauType }>((hash, name, type) => {
-      ({
-        type: hash[name],
-        constraints,
-        substitution,
-      } = type.bindThis(this, constraints, substitution));
-      return hash;
-    }, Object.create(null));
-    return new FieldBindingResults(
-      Context.create<TauType>(hash).map((_name, type) => type.substitute(substitution)),
-      constraints,
-      substitution,
-    );
+    return this._fields.bind(this, constraints, substitution);
   }
 
   public intersect(
@@ -387,28 +473,7 @@ export class ObjectType extends TauType {
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      const hash: { [name: string]: TauType } = Object.create(null);
-      this._fields.forEach((name, type) => {
-        if (other._fields.has(name)) {
-          ({
-            type: hash[name],
-            constraints,
-            substitution,
-          } = type.intersect(other._fields.top(name), constraints, substitution));
-        } else {
-          hash[name] = type;
-        }
-      });
-      other._fields.forEach((name, type) => {
-        if (!this._fields.has(name)) {
-          hash[name] = type;
-        }
-      });
-      return new TypingResults(
-        ObjectType.create(hash).substitute(substitution),
-        constraints,
-        substitution,
-      );
+      return this._fields.intersect(other._fields, constraints, substitution);
     } else if (other instanceof UnknownType) {
       ({ constraints, substitution } = other.leq(this, constraints, substitution));
       return new TypingResults(this.substitute(substitution), constraints, substitution);
@@ -425,61 +490,10 @@ export class ObjectType extends TauType {
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
-      return fields.reduce<Environment>(
-        ({ constraints, substitution }, name, type) => {
-          if (!this._fields.has(name)) {
-            throw this._unificationFailure(other);
-          }
-          let field: TauType;
-          ({
-            type: field,
-            constraints,
-            substitution,
-          } = this._fields.top(name).bindThis(this, constraints, substitution));
-          return field.leq(type, constraints, substitution);
-        },
-        new Environment(constraints, substitution),
-      );
+      return this._fields.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
-  }
-}
-
-export class Prototype {
-  private _fields = Context.create<TauType>();
-
-  public constructor() {}
-
-  public getField(
-    parent: IotaType,
-    name: string,
-    constraints: Constraints,
-    substitution: Substitution,
-  ): TypingResults {
-    if (this._fields.has(name)) {
-      return this._fields.top(name).bindThis(parent, constraints, substitution);
-    } else {
-      throw new TypeError(`'${parent}' has no field named ${JSON.stringify(name)}`);
-    }
-  }
-
-  public intersect(
-    parent: IotaType,
-    other: ObjectType,
-    constraints: Constraints,
-    substitution: Substitution,
-  ): TypingResults {
-    // TODO
-  }
-
-  public leq(
-    parent: IotaType,
-    other: ObjectType,
-    constraints: Constraints,
-    substitution: Substitution,
-  ): Environment {
-    // TODO
   }
 }
 
@@ -641,7 +655,7 @@ export class UnknownType extends IotaType {
 }
 
 export class BooleanType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new BooleanType();
 
   private constructor() {
@@ -670,7 +684,8 @@ export class BooleanType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof BooleanType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (other instanceof UnknownType) {
       return new TypingResults(other, constraints, substitution);
     } else {
@@ -684,7 +699,9 @@ export class BooleanType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof BooleanType) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return BooleanType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return BooleanType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -692,7 +709,7 @@ export class BooleanType extends IotaType {
 }
 
 export class ComplexType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new ComplexType();
 
   private constructor() {
@@ -721,7 +738,8 @@ export class ComplexType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof ComplexType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return ComplexType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (
       other instanceof RealType ||
       other instanceof RationalType ||
@@ -741,7 +759,9 @@ export class ComplexType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof ComplexType) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return ComplexType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return ComplexType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -749,7 +769,7 @@ export class ComplexType extends IotaType {
 }
 
 export class RealType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new RealType();
 
   private constructor() {
@@ -782,7 +802,8 @@ export class RealType extends IotaType {
     ) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return RealType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (
       other instanceof RationalType ||
       other instanceof IntegerType ||
@@ -805,7 +826,9 @@ export class RealType extends IotaType {
     ) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return RealType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return RealType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -813,7 +836,7 @@ export class RealType extends IotaType {
 }
 
 export class RationalType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new RationalType();
 
   private constructor() {
@@ -847,7 +870,8 @@ export class RationalType extends IotaType {
     ) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return RationalType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (
       other instanceof IntegerType ||
       other instanceof NaturalType ||
@@ -870,7 +894,9 @@ export class RationalType extends IotaType {
     ) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return RationalType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return RationalType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -878,7 +904,7 @@ export class RationalType extends IotaType {
 }
 
 export class IntegerType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new IntegerType();
 
   private constructor() {
@@ -913,7 +939,8 @@ export class IntegerType extends IotaType {
     ) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return IntegerType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (other instanceof NaturalType || other instanceof UnknownType) {
       return new TypingResults(other, constraints, substitution);
     } else {
@@ -933,7 +960,9 @@ export class IntegerType extends IotaType {
     ) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return IntegerType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return IntegerType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -941,7 +970,7 @@ export class IntegerType extends IotaType {
 }
 
 export class NaturalType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new NaturalType();
 
   private constructor() {
@@ -977,7 +1006,8 @@ export class NaturalType extends IotaType {
     ) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return IntegerType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (other instanceof UnknownType) {
       return new TypingResults(other, constraints, substitution);
     } else {
@@ -998,7 +1028,9 @@ export class NaturalType extends IotaType {
     ) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return NaturalType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return NaturalType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -1006,7 +1038,7 @@ export class NaturalType extends IotaType {
 }
 
 export class StringType extends IotaType {
-  public static readonly PROTOTYPE = new Prototype();
+  public static readonly PROTOTYPE = new FieldSet();
   public static readonly INSTANCE = new StringType();
 
   private constructor() {
@@ -1035,7 +1067,8 @@ export class StringType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof StringType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return StringType.PROTOTYPE.intersect(this, other, constraints, substitution);
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this, constraints, substitution);
     } else if (other instanceof UnknownType) {
       return new TypingResults(other, constraints, substitution);
     } else {
@@ -1049,7 +1082,9 @@ export class StringType extends IotaType {
     } else if (other instanceof UndefinedType || other instanceof StringType) {
       return new Environment(constraints, substitution);
     } else if (other instanceof ObjectType) {
-      return StringType.PROTOTYPE.leq(this, other, constraints, substitution);
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return StringType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
