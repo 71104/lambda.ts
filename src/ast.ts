@@ -1,4 +1,4 @@
-import { RuntimeError } from './errors.js';
+import { InternalError, RuntimeError } from './errors.js';
 import {
   Constraints,
   IotaType,
@@ -9,6 +9,7 @@ import {
   TypeContext,
   TypeInterface,
   TypingResults,
+  UnknownType,
   VariableType,
 } from './types.js';
 import {
@@ -17,6 +18,7 @@ import {
   ObjectValue,
   ValueContext,
   ValueInterface,
+  unmarshal,
 } from './values.js';
 
 export interface NodeInterface {
@@ -139,8 +141,16 @@ export class VariableNode implements NodeInterface {
   public evaluate(context: ValueContext): ValueInterface {
     if (context.has(this.name)) {
       return context.top(this.name);
+    }
+    const global = globalThis as { [name: string]: unknown };
+    if (this.name in global) {
+      try {
+        return unmarshal(global[this.name]);
+      } catch {
+        throw new RuntimeError(`unknown variable ${JSON.stringify(this.name)}`);
+      }
     } else {
-      throw new RuntimeError(`undefined variable ${JSON.stringify(this.name)}`);
+      throw new RuntimeError(`unknown variable ${JSON.stringify(this.name)}`);
     }
   }
 }
@@ -233,6 +243,76 @@ export class LambdaNode implements NodeInterface {
 
   public evaluate(context: ValueContext): Closure {
     return new Closure(context, this.name, this.body);
+  }
+}
+
+export class NativeNode implements NodeInterface {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  public constructor(public readonly fn: Function) {}
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>(['this', 'arguments']);
+  }
+
+  public getType(
+    _context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return new TypingResults(UnknownType.INSTANCE, constraints, substitution);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    if (!context.has('this') || !context.has('arguments')) {
+      throw new InternalError(
+        'native functions must be invoked with `this` and the list of arguments',
+      );
+    }
+    return unmarshal(
+      this.fn.apply(context.top('this').marshal(), context.top('arguments').marshal()),
+    );
+  }
+}
+
+export class SemiNativeNode implements NodeInterface {
+  private readonly _arity: number;
+
+  private *_args(): Generator<string, void> {
+    for (let i = 1; i <= this._arity; i++) {
+      yield '$' + i;
+    }
+  }
+
+  public constructor(
+    public readonly type: TauType,
+    public readonly fn: (...args: ValueInterface[]) => ValueInterface,
+  ) {
+    this._arity = fn.length;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>(this._args());
+  }
+
+  public getType(
+    _context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return new TypingResults(this.type, constraints, substitution);
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    const args = [...this._args()];
+    args.forEach(name => {
+      if (!context.has(name)) {
+        throw new InternalError('incorrect number of arguments received');
+      }
+    });
+    return this.fn.apply(
+      null,
+      args.map(name => context.top(name)),
+    );
   }
 }
 
