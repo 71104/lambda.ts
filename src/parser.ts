@@ -293,15 +293,38 @@ export class Parser {
   }
 
   private _parse2(terminators: Token[]): NodeInterface {
-    let node = this._parse1(terminators);
+    switch (this._lexer.token) {
+      case 'keyword:not':
+      case 'tilde': {
+        const operator = FieldNode.createUnaryOperator(this._lexer.step());
+        if (terminators.includes(this._lexer.token)) {
+          return operator;
+        } else {
+          return new ApplicationNode(operator, this._parse2(terminators));
+        }
+      }
+      case 'minus':
+        // Unary operator `-` cannot be used as a standalone function because it would be ambiguous
+        // with its binary counterpart.
+        return new ApplicationNode(
+          FieldNode.createUnaryOperator(this._lexer.step()),
+          this._parse2(terminators),
+        );
+      default:
+        return this._parse1(terminators);
+    }
+  }
+
+  private _parse3(terminators: Token[]): NodeInterface {
+    let node = this._parse2(terminators);
     while (!terminators.includes(this._lexer.token)) {
-      node = new ApplicationNode(node, this._parse1(terminators));
+      node = new ApplicationNode(node, this._parse2(terminators));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse2(terminators);
+    return this._parse3(terminators);
   }
 
   public parse(): NodeInterface {

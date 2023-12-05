@@ -78,8 +78,21 @@ export abstract class TauType implements TypeInterface {
     substitution: Substitution,
   ): TypingResults;
 
-  protected _fieldAccessFailure(name: string): TypeError {
-    return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
+  /**
+   * FOR INTERNAL USE ONLY. Constructs a `TypeError` resulting from trying to access a field this
+   * type doesn't have.
+   *
+   * @param name The name of the accessed field.
+   * @returns The constructed TypeError.
+   */
+  public fieldAccessFailure(name: string): TypeError {
+    if (name.startsWith('#u:')) {
+      return new TypeError(`'${this}' doesn't have the '${name.substring(3)}' operator`);
+    } else if (name.startsWith('#b1:')) {
+      return new TypeError(`'${this}' doesn't have the '${name.substring(4)}' operator`);
+    } else {
+      return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
+    }
   }
 
   public abstract getField(
@@ -461,7 +474,7 @@ export class FieldSet {
     return other.reduce<Environment>(
       ({ constraints, substitution }, name, type) => {
         if (!this._fields.has(name)) {
-          throw new TypeError(`'${parent}' doesn't have a field named ${JSON.stringify(name)}`);
+          throw parent.fieldAccessFailure(name);
         }
         let field: TauType;
         ({
@@ -664,7 +677,7 @@ export class UndefinedType extends IotaType {
   }
 
   public getField(name: string): TypingResults {
-    throw this._fieldAccessFailure(name);
+    throw this.fieldAccessFailure(name);
   }
 
   public intersect(
@@ -702,7 +715,7 @@ export class NullType extends IotaType {
   }
 
   public getField(name: string): TypingResults {
-    throw this._fieldAccessFailure(name);
+    throw this.fieldAccessFailure(name);
   }
 
   public intersect(
@@ -1261,7 +1274,7 @@ export class LambdaType extends TauType {
   }
 
   public getField(name: string): TypingResults {
-    throw this._fieldAccessFailure(name);
+    throw this.fieldAccessFailure(name);
   }
 
   public intersect(
