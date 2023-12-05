@@ -2,10 +2,12 @@ import { InternalError, RuntimeError } from './errors.js';
 import {
   BooleanType,
   Constraints,
+  Environment,
   IotaType,
   LambdaType,
   ListType,
   ObjectType,
+  StringType,
   Substitution,
   TauType,
   TypeContext,
@@ -19,6 +21,7 @@ import {
   EMPTY_VALUE_CONTEXT,
   ListValue,
   ObjectValue,
+  StringValue,
   ValueContext,
   ValueInterface,
   unmarshal,
@@ -76,6 +79,40 @@ export class LiteralNode implements NodeInterface {
   }
 }
 
+export class TemplateStringLiteral implements NodeInterface {
+  public constructor(public readonly pieces: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    return this.pieces.reduce(
+      (variables, piece) => new Set<string>([...variables, ...piece.getFreeVariables()]),
+      new Set<string>(),
+    );
+  }
+
+  public getType(
+    context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const stringifiable = ObjectType.create({ str: StringType.INSTANCE });
+    ({ constraints, substitution } = this.pieces.reduce<Environment>(
+      ({ constraints, substitution }, piece) => {
+        let type: TauType;
+        ({ type, constraints, substitution } = piece.getType(context, constraints, substitution));
+        ({ constraints, substitution } = type.leq(stringifiable, constraints, substitution));
+        return new Environment(constraints, substitution);
+      },
+      new Environment(constraints, substitution),
+    ));
+    return new TypingResults(StringType.INSTANCE, constraints, substitution);
+  }
+
+  public evaluate(context: ValueContext): StringValue {
+    const strings = this.pieces.map(piece => piece.evaluate(context).getField('str'));
+    return new StringValue(strings.map(string => string.cast(StringValue).value).join(''));
+  }
+}
+
 export class ObjectFieldNode {
   public constructor(
     public readonly name: string,
@@ -126,8 +163,10 @@ export class ListLiteralNode implements NodeInterface {
   public constructor(public readonly elements: NodeInterface[]) {}
 
   public getFreeVariables(): Set<string> {
-    const sets = this.elements.map(element => [...element.getFreeVariables()]);
-    return new Set<string>(sets.flat());
+    return this.elements.reduce(
+      (variables, element) => new Set<string>([...variables, ...element.getFreeVariables()]),
+      new Set<string>(),
+    );
   }
 
   public getType(

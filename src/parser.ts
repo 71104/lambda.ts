@@ -10,6 +10,7 @@ import {
   NodeInterface,
   ObjectFieldNode,
   ObjectLiteralNode,
+  TemplateStringLiteral,
   VariableNode,
 } from './ast.js';
 import { InternalError } from './errors.js';
@@ -105,6 +106,39 @@ export class Parser {
     } else {
       this._lexer.next();
       return this._parseType();
+    }
+  }
+
+  private _parseTemplate(): NodeInterface {
+    const pieces: NodeInterface[] = [
+      new LiteralNode(
+        new StringValue(unescapeString(this._lexer.expect('template-begin').slice(1, -2))),
+        StringType.INSTANCE,
+      ),
+    ];
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      pieces.push(this._parseRoot(['template-middle', 'template-end']));
+      switch (this._lexer.token) {
+        case 'template-middle':
+          pieces.push(
+            new LiteralNode(
+              new StringValue(unescapeString(this._lexer.step().slice(1, -2))),
+              StringType.INSTANCE,
+            ),
+          );
+          break;
+        case 'template-end':
+          pieces.push(
+            new LiteralNode(
+              new StringValue(unescapeString(this._lexer.step().slice(1, -1))),
+              StringType.INSTANCE,
+            ),
+          );
+          return new TemplateStringLiteral(pieces);
+        default:
+          throw new InternalError(`template string expected but '${this._lexer.token}' found`);
+      }
     }
   }
 
@@ -237,11 +271,14 @@ export class Parser {
       }
       case 'square-left':
         return this._parseList();
-      case 'string': {
+      case 'string':
+      case 'template': {
         const label = this._lexer.step();
         const stringValue = unescapeString(label.slice(1, -1));
         return new LiteralNode(new StringValue(stringValue), StringType.INSTANCE);
       }
+      case 'template-begin':
+        return this._parseTemplate();
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }
