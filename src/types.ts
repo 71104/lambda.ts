@@ -197,8 +197,8 @@ export abstract class TauType implements TypeInterface {
   }
 }
 
-export type Constraints = Context<TauType>;
-export const Constraints = Context<TauType>;
+export type Constraints = Context<TypeInterface>;
+export const Constraints = Context<TypeInterface>;
 export const EMPTY_TYPE_CONSTRAINTS = Constraints.create<TauType>();
 
 export type Substitution = Context<TauType>;
@@ -283,8 +283,10 @@ export class VariableType extends TauType {
     return container.getField(name, constraints, substitution);
   }
 
-  public getConstraint(constraints: Constraints): TauType {
-    return constraints.topDef(this.name, UndefinedType.INSTANCE);
+  public getConstraint(constraints: Constraints, substitution: Substitution): TypingResults {
+    return constraints
+      .topDef(this.name, UndefinedType.INSTANCE)
+      .instantiate(constraints, substitution);
   }
 
   private _intersectWithVariable(
@@ -292,16 +294,24 @@ export class VariableType extends TauType {
     constraints: Constraints,
     substitution: Substitution,
   ): TypingResults {
+    let thisConstraint: TauType;
+    ({
+      type: thisConstraint,
+      constraints,
+      substitution,
+    } = this.getConstraint(constraints, substitution));
+    let otherConstraint: TauType;
+    ({
+      type: otherConstraint,
+      constraints,
+      substitution,
+    } = other.getConstraint(constraints, substitution));
     let constraint: TauType;
     ({
       type: constraint,
       constraints,
       substitution,
-    } = this.getConstraint(constraints).intersect(
-      other.getConstraint(constraints),
-      constraints,
-      substitution,
-    ));
+    } = thisConstraint.intersect(otherConstraint, constraints, substitution));
     const result = VariableType.getNew();
     return new TypingResults(
       result,
@@ -334,7 +344,12 @@ export class VariableType extends TauType {
         type: constraint,
         constraints,
         substitution,
-      } = this.getConstraint(constraints).intersect(other, constraints, substitution));
+      } = this.getConstraint(constraints, substitution));
+      ({
+        type: constraint,
+        constraints,
+        substitution,
+      } = constraint.intersect(other, constraints, substitution));
       const result = VariableType.getNew();
       return new TypingResults(
         result,
@@ -348,11 +363,13 @@ export class VariableType extends TauType {
     if (substitution.has(this.name)) {
       return other.leq(this.substitute(substitution), constraints, substitution);
     } else {
-      ({ constraints, substitution } = other.leq(
-        this.getConstraint(constraints),
+      let constraint: TauType;
+      ({
+        type: constraint,
         constraints,
         substitution,
-      ));
+      } = this.getConstraint(constraints, substitution));
+      ({ constraints, substitution } = other.leq(constraint, constraints, substitution));
       return new Environment(constraints, substitution.push(this.name, other));
     }
   }
@@ -374,11 +391,13 @@ export class VariableType extends TauType {
         return new Environment(constraints, substitution);
       }
     } else {
-      ({ constraints, substitution } = other.leq(
-        this.getConstraint(constraints),
+      let constraint: TauType;
+      ({
+        type: constraint,
         constraints,
         substitution,
-      ));
+      } = this.getConstraint(constraints, substitution));
+      ({ constraints, substitution } = other.leq(constraint, constraints, substitution));
       return new Environment(constraints, substitution.push(this.name, other));
     }
   }
