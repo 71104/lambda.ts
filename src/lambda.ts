@@ -18,11 +18,11 @@ export function parse(input: string): NodeInterface {
 export function evaluate(input: string): [TypeInterface, ValueInterface] {
   const parser = new Parser(input);
   const ast = parser.parse();
-  const { type } = ast.getType(
+  const { type, substitution } = ast.getType(
     GLOBAL_TYPE_CONTEXT,
     GLOBAL_TYPE_CONSTRAINTS,
     GLOBAL_TYPE_SUBSTITUTION,
   );
   const value = ast.evaluate(GLOBAL_VALUE_CONTEXT);
-  return [type.closeAll(), value];
+  return [type.substitute(substitution).closeAll(), value];
 }

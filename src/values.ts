@@ -459,6 +459,34 @@ export class ListValue extends BaseValue implements ValueInterface {
   }
 }
 
+export class TupleValue extends BaseValue implements ValueInterface {
+  public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
+
+  public constructor(public readonly elements: ValueInterface[]) {
+    super();
+  }
+
+  public toString(): string {
+    return `(${this.elements.map(element => element.toString()).join(', ')})`;
+  }
+
+  public bindThis(): ValueInterface {
+    return this;
+  }
+
+  public getField(name: string): ValueInterface {
+    if (TupleValue.PROTOTYPE.has(name)) {
+      return TupleValue.PROTOTYPE.top(name).bindThis(this);
+    } else {
+      throw new RuntimeError(`'tuple' doesn't have a field named ${JSON.stringify(name)}`);
+    }
+  }
+
+  public marshal(): unknown[] {
+    return this.elements.map(element => element.marshal());
+  }
+}
+
 export class Closure extends BaseValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
 

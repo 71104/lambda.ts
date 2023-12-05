@@ -10,6 +10,7 @@ import {
   StringType,
   Substitution,
   TauType,
+  TupleType,
   TypeContext,
   TypeInterface,
   TypingResults,
@@ -22,6 +23,7 @@ import {
   ListValue,
   ObjectValue,
   StringValue,
+  TupleValue,
   ValueContext,
   ValueInterface,
   unmarshal,
@@ -194,6 +196,38 @@ export class ListLiteralNode implements NodeInterface {
   public evaluate(context: ValueContext): ValueInterface {
     const elements = this.elements.map(element => element.evaluate(context));
     return new ListValue(elements, 0, elements.length);
+  }
+}
+
+export class TupleLiteralNode implements NodeInterface {
+  public constructor(public readonly elements: NodeInterface[]) {}
+
+  public getFreeVariables(): Set<string> {
+    return this.elements.reduce(
+      (variables, element) => new Set<string>([...variables, ...element.getFreeVariables()]),
+      new Set<string>(),
+    );
+  }
+
+  public getType(
+    context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const elements = this.elements.map(element => {
+      let type: TauType;
+      ({ type, constraints, substitution } = element.getType(context, constraints, substitution));
+      return type;
+    });
+    return new TypingResults(
+      new TupleType(elements).substitute(substitution),
+      constraints,
+      substitution,
+    );
+  }
+
+  public evaluate(context: ValueContext): ValueInterface {
+    return new TupleValue(this.elements.map(element => element.evaluate(context)));
   }
 }
 

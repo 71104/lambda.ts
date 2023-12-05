@@ -612,7 +612,7 @@ export class ListType extends TauType {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       ({ constraints, substitution } = this.leq(other, constraints, substitution));
-      return new TypingResults(this, constraints, substitution);
+      return new TypingResults(this.substitute(substitution), constraints, substitution);
     } else if (other instanceof ListType) {
       let inner: TauType;
       ({
@@ -637,6 +637,104 @@ export class ListType extends TauType {
       return ListType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else if (other instanceof ListType) {
       return this.inner.leq(other.inner, constraints, substitution);
+    } else {
+      throw this._unificationFailure(other);
+    }
+  }
+}
+
+export class TupleType extends TauType {
+  public static readonly PROTOTYPE = new FieldSet();
+
+  public constructor(public readonly elements: TauType[]) {
+    super();
+  }
+
+  public toString(): string {
+    return `(${this.elements.map(element => element.toString())})`;
+  }
+
+  public getFreeVariables(): Set<string> {
+    return this.elements.reduce(
+      (variables, element) => new Set<string>([...variables, ...element.getFreeVariables()]),
+      new Set<string>(),
+    );
+  }
+
+  public substitute(substitution: Substitution): TupleType {
+    return new TupleType(this.elements.map(element => element.substitute(substitution)));
+  }
+
+  public bindThis(
+    _thisType: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return new TypingResults(this, constraints, substitution);
+  }
+
+  public getField(
+    name: string,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return TupleType.PROTOTYPE.getField(this, name, constraints, substitution);
+  }
+
+  public intersect(
+    other: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    if (other instanceof VariableType) {
+      return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof ObjectType) {
+      ({ constraints, substitution } = this.leq(other, constraints, substitution));
+      return new TypingResults(this.substitute(substitution), constraints, substitution);
+    } else if (other instanceof TupleType) {
+      if (other.elements.length !== this.elements.length) {
+        throw new TypeError(`cannot intersect '${this}' and '${other}': different arities`);
+      }
+      const elements = this.elements.map((element, index) => {
+        let type: TauType;
+        ({ type, constraints, substitution } = element.intersect(
+          other.elements[index],
+          constraints,
+          substitution,
+        ));
+        return type;
+      });
+      return new TypingResults(
+        new TupleType(elements).substitute(substitution),
+        constraints,
+        substitution,
+      );
+    } else {
+      throw this._intersectionFailure(other);
+    }
+  }
+
+  public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
+    if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof ObjectType) {
+      let fields: Context<TauType>;
+      ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
+      return ListType.PROTOTYPE.leq(this, fields, constraints, substitution);
+    } else if (other instanceof TupleType) {
+      if (other.elements.length !== this.elements.length) {
+        throw new TypeError(`cannot unify '${this}' and '${other}': different arities`);
+      } else {
+        return this.elements.reduce<Environment>(
+          ({ constraints, substitution }, element, index) =>
+            element.leq(other.elements[index], constraints, substitution),
+          new Environment(constraints, substitution),
+        );
+      }
     } else {
       throw this._unificationFailure(other);
     }
