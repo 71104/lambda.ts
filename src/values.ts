@@ -339,6 +339,8 @@ export class IntegerValue extends BaseValue implements ValueInterface {
 
 export class NaturalValue extends BaseValue implements ValueInterface {
   public static readonly PROTOTYPE = EMPTY_VALUE_CONTEXT;
+  public static readonly ZERO = new NaturalValue(0);
+
   public readonly value: number;
 
   public constructor(value: number) {

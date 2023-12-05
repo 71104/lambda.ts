@@ -87,9 +87,19 @@ export abstract class TauType implements TypeInterface {
    */
   public fieldAccessFailure(name: string): TypeError {
     if (name.startsWith('#u:')) {
-      return new TypeError(`'${this}' doesn't have the '${name.substring(3)}' operator`);
+      return new TypeError(`'${this}' doesn't have the unary '${name.substring(3)}' operator`);
     } else if (name.startsWith('#b1:')) {
-      return new TypeError(`'${this}' doesn't have the '${name.substring(4)}' operator`);
+      return new TypeError(
+        `'${this}' cannot appear as the left-hand side of the binary '${name.substring(
+          4,
+        )}' operator`,
+      );
+    } else if (name.startsWith('#b2:')) {
+      return new TypeError(
+        `'${this}' cannot appear as the right-hand side of the binary '${name.substring(
+          4,
+        )}' operator`,
+      );
     } else {
       return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
     }
