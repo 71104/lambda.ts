@@ -1,4 +1,4 @@
-import { InternalError } from './errors.js';
+import { InternalError, RuntimeError } from './errors.js';
 import {
   BooleanType,
   ComplexType,
@@ -8,10 +8,12 @@ import {
   LambdaType,
   ListType,
   NaturalType,
+  ObjectType,
   RationalType,
   RealType,
   StringType,
   TauType,
+  VariableType,
 } from './types.js';
 import {
   BooleanValue,
@@ -37,6 +39,7 @@ interface ValueConstructor<Value extends ValueInterface> {
   new (...args: never[]): Value;
 }
 
+// Not an exhaustive list, only the ones we use in the prototypes.
 const IOTA_TYPES: { [name: string]: IotaType } = {
   b: BooleanType.INSTANCE,
   c: ComplexType.INSTANCE,
@@ -47,30 +50,50 @@ const IOTA_TYPES: { [name: string]: IotaType } = {
   s: StringType.INSTANCE,
 };
 
-class Prototype<Type extends TauType, Value extends ValueInterface> {
+class Prototype<Value extends ValueInterface> {
   private readonly _types: { [name: string]: TauType } = Object.create(null);
   private readonly _values: { [name: string]: Closure } = Object.create(null);
 
-  public constructor(
-    public readonly typeConstructor: TypeConstructor<Type>,
+  protected constructor(
+    private readonly _prototype: FieldSet,
+    private readonly _selfType: TauType,
     public readonly valueConstructor: ValueConstructor<Value>,
   ) {}
+
+  public static createForIotaType<Type extends TauType, Value extends ValueInterface>(
+    typeConstructor: TypeConstructor<Type>,
+    valueConstructor: ValueConstructor<Value>,
+  ): Prototype<Value> {
+    return new Prototype<Value>(
+      typeConstructor.PROTOTYPE,
+      typeConstructor.INSTANCE,
+      valueConstructor,
+    );
+  }
+
+  public methodRawIncludingSelf(
+    name: string,
+    type: TauType,
+    fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
+  ): Prototype<Value> {
+    this._types[name] = type;
+    this._values[name] = Closure.wrap(fn);
+    return this;
+  }
 
   public methodRaw(
     name: string,
     type: TauType,
     fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
-  ): Prototype<Type, Value> {
-    this._types[name] = new LambdaType(this.typeConstructor.INSTANCE, type);
-    this._values[name] = Closure.wrap(fn);
-    return this;
+  ): Prototype<Value> {
+    return this.methodRawIncludingSelf(name, new LambdaType(this._selfType, type), fn);
   }
 
   public method(
     name: string,
     signature: string,
     fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
-  ): Prototype<Type, Value> {
+  ): Prototype<Value> {
     const match = signature.match(/^([bcrtins]*)\.([bcrtins])$/);
     if (!match) {
       throw new InternalError(`invalid method signature: ${JSON.stringify(signature)}`);
@@ -91,17 +114,17 @@ class Prototype<Type extends TauType, Value extends ValueInterface> {
   }
 
   public close(): void {
-    this.typeConstructor.PROTOTYPE.add(this._types);
+    this._prototype.add(this._types);
     this.valueConstructor.PROTOTYPE = this.valueConstructor.PROTOTYPE.pushAll(this._values);
   }
 }
 
-new Prototype(BooleanType, BooleanValue)
+Prototype.createForIotaType(BooleanType, BooleanValue)
   .method('#u:not', '.b', self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
   .method('str', '.s', self => new StringValue(self.value ? 'true' : 'false'))
   .close();
 
-new Prototype(ComplexType, ComplexValue)
+Prototype.createForIotaType(ComplexType, ComplexValue)
   .method('#u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
   .method('str', '.s', self => {
     if (self.imaginary < 0) {
@@ -115,7 +138,7 @@ new Prototype(ComplexType, ComplexValue)
   .method('abs', '.r', self => new RealValue(Math.hypot(self.real, self.imaginary)))
   .close();
 
-new Prototype(RealType, RealValue)
+Prototype.createForIotaType(RealType, RealValue)
   .method('#u:-', '.r', self => new RealValue(-self.value))
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.r', self => self)
@@ -130,7 +153,7 @@ new Prototype(RealType, RealValue)
   .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
-new Prototype(RationalType, RationalValue)
+Prototype.createForIotaType(RationalType, RationalValue)
   .method('#u:-', '.t', self => new RationalValue(-self.numerator, self.denominator))
   .method('str', '.s', self => new StringValue(self.toString()))
   .method('real', '.t', self => self)
@@ -149,7 +172,7 @@ new Prototype(RationalType, RationalValue)
   .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.numerator / self.denominator)))
   .close();
 
-new Prototype(IntegerType, IntegerValue)
+Prototype.createForIotaType(IntegerType, IntegerValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
   .method('str', '.s', self => new StringValue('' + self.value))
@@ -165,7 +188,7 @@ new Prototype(IntegerType, IntegerValue)
   .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
-new Prototype(NaturalType, NaturalValue)
+Prototype.createForIotaType(NaturalType, NaturalValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
   .method('str', '.s', self => new StringValue('' + self.value))
@@ -181,7 +204,7 @@ new Prototype(NaturalType, NaturalValue)
   .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
-new Prototype(StringType, StringValue)
+Prototype.createForIotaType(StringType, StringValue)
   .method('str', '.s', self => self)
   .method('length', '.n', self => new NaturalValue(self.value.length))
   .method(
@@ -223,3 +246,46 @@ new Prototype(StringType, StringValue)
   .method('toUpperCase', '.s', self => new StringValue(self.value.toUpperCase()))
   .method('reverse', '.s', self => new StringValue(self.value.split('').reverse().join('')))
   .close();
+
+class ListPrototype extends Prototype<ListValue> {
+  private readonly _inner: VariableType;
+
+  public constructor(fn: (inner: VariableType, prototype: ListPrototype) => Prototype<ListValue>) {
+    const inner = VariableType.getNew();
+    super(ListType.PROTOTYPE, new ListType(inner), ListValue);
+    this._inner = inner;
+    fn(this._inner, this);
+  }
+}
+
+new ListPrototype((inner, prototype: ListPrototype) =>
+  prototype
+    .method('str', '.s', self => new StringValue(self.toString()))
+    .method('length', '.n', self => new NaturalValue(self.count))
+    .methodRaw('head', inner, self => {
+      for (const element of self.elements) {
+        return element;
+      }
+      throw new RuntimeError(`empty list has no head`);
+    })
+    .methodRaw('tail', new ListType(inner), self => {
+      if (self.count > 0) {
+        return new ListValue(self.array, self.offset + 1, self.count - 1);
+      } else {
+        return self;
+      }
+    })
+    .methodRawIncludingSelf(
+      'join',
+      new LambdaType(
+        ObjectType.create({ str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE) }),
+        new LambdaType(StringType.INSTANCE, StringType.INSTANCE),
+      ),
+      (self, separator) =>
+        new StringValue(
+          [...self.elements]
+            .map(element => element.getField('str').marshal())
+            .join(separator.marshal() as string),
+        ),
+    ),
+).close();

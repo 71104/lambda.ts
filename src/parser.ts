@@ -22,6 +22,7 @@ import {
   IntegerType,
   LambdaType,
   NaturalType,
+  NullType,
   RealType,
   StringType,
   TauType,
@@ -32,6 +33,7 @@ import {
   BooleanValue,
   ComplexValue,
   NaturalValue,
+  NullValue,
   RealValue,
   StringValue,
   UndefinedValue,
@@ -39,7 +41,6 @@ import {
 
 import './operators.js';
 import './prototypes.js';
-import './lists.js';
 
 function unescapeString(input: string): string {
   return input
@@ -281,6 +282,9 @@ export class Parser {
         return this._parseIf(terminators);
       case 'keyword:let':
         return this._parseLet(terminators);
+      case 'keyword:null':
+        this._lexer.next();
+        return new LiteralNode(NullValue.INSTANCE, NullType.INSTANCE);
       case 'keyword:true':
         this._lexer.next();
         return new LiteralNode(BooleanValue.TRUE, BooleanType.INSTANCE);
