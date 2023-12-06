@@ -286,7 +286,11 @@ export class RationalValue extends BaseValue implements ValueInterface {
   }
 
   public toString(): string {
-    return `${this.numerator}/${this.denominator}`;
+    if (Math.sign(this.numerator) !== Math.sign(this.denominator)) {
+      return `-${Math.abs(this.numerator)}/${Math.abs(this.denominator)}`;
+    } else {
+      return `${Math.abs(this.numerator)}/${Math.abs(this.denominator)}`;
+    }
   }
 
   public bindThis(): ValueInterface {
@@ -408,8 +412,8 @@ export class ListValue extends BaseValue implements ValueInterface {
 
   public constructor(
     public readonly array: ValueInterface[],
-    public readonly offset: number,
-    public readonly count: number,
+    public readonly offset: number = 0,
+    public readonly count: number = array.length,
   ) {
     super();
     if (offset < 0) {

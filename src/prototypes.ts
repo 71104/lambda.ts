@@ -1,9 +1,12 @@
+import { InternalError } from './errors.js';
 import {
   BooleanType,
   ComplexType,
   FieldSet,
   IntegerType,
+  IotaType,
   LambdaType,
+  ListType,
   NaturalType,
   RationalType,
   RealType,
@@ -15,6 +18,7 @@ import {
   Closure,
   ComplexValue,
   IntegerValue,
+  ListValue,
   NaturalValue,
   RationalValue,
   RealValue,
@@ -33,6 +37,16 @@ interface ValueConstructor<Value extends ValueInterface> {
   new (...args: never[]): Value;
 }
 
+const IOTA_TYPES: { [name: string]: IotaType } = {
+  b: BooleanType.INSTANCE,
+  c: ComplexType.INSTANCE,
+  r: RealType.INSTANCE,
+  t: RationalType.INSTANCE,
+  i: IntegerType.INSTANCE,
+  n: NaturalType.INSTANCE,
+  s: StringType.INSTANCE,
+};
+
 class Prototype<Type extends TauType, Value extends ValueInterface> {
   private readonly _types: { [name: string]: TauType } = Object.create(null);
   private readonly _values: { [name: string]: Closure } = Object.create(null);
@@ -42,14 +56,38 @@ class Prototype<Type extends TauType, Value extends ValueInterface> {
     public readonly valueConstructor: ValueConstructor<Value>,
   ) {}
 
-  public method<Result extends TauType>(
+  public methodRaw(
     name: string,
-    result: TypeConstructor<Result>,
-    fn: (self: Value) => ValueInterface,
+    type: TauType,
+    fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
   ): Prototype<Type, Value> {
-    this._types[name] = new LambdaType(this.typeConstructor.INSTANCE, result.INSTANCE);
+    this._types[name] = new LambdaType(this.typeConstructor.INSTANCE, type);
     this._values[name] = Closure.wrap(fn);
     return this;
+  }
+
+  public method(
+    name: string,
+    signature: string,
+    fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
+  ): Prototype<Type, Value> {
+    const match = signature.match(/^([bcrtins]*)\.([bcrtins])$/);
+    if (!match) {
+      throw new InternalError(`invalid method signature: ${JSON.stringify(signature)}`);
+    }
+    const [, args, result] = match;
+    if (fn.length != args.length + 1) {
+      const got = fn.length;
+      const want = args.length + 1;
+      throw new InternalError(
+        `invalid method implementation: has ${got} arguments including 'this', the type signature expects ${want}`,
+      );
+    }
+    let type: TauType = IOTA_TYPES[result];
+    for (const arg of args.split('').reverse()) {
+      type = new LambdaType(IOTA_TYPES[arg], type);
+    }
+    return this.methodRaw(name, type, fn);
   }
 
   public close(): void {
@@ -59,112 +97,129 @@ class Prototype<Type extends TauType, Value extends ValueInterface> {
 }
 
 new Prototype(BooleanType, BooleanValue)
-  .method('#u:not', BooleanType, self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
-  .method('str', StringType, self => new StringValue(self.value ? 'true' : 'false'))
+  .method('#u:not', '.b', self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
+  .method('str', '.s', self => new StringValue(self.value ? 'true' : 'false'))
   .close();
 
 new Prototype(ComplexType, ComplexValue)
-  .method('#u:-', ComplexType, self => new ComplexValue(-self.real, -self.imaginary))
-  .method('str', StringType, self => {
+  .method('#u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
+  .method('str', '.s', self => {
     if (self.imaginary < 0) {
       return new StringValue(`${self.real}-${Math.abs(self.imaginary)}i`);
     } else {
       return new StringValue(`${self.real}+${Math.abs(self.imaginary)}i`);
     }
   })
-  .method('real', RealType, self => new RealValue(self.real))
-  .method('imaginary', RealType, self => new RealValue(self.imaginary))
-  .method('abs', RealType, self => new RealValue(Math.hypot(self.real, self.imaginary)))
+  .method('real', '.r', self => new RealValue(self.real))
+  .method('imaginary', '.r', self => new RealValue(self.imaginary))
+  .method('abs', '.r', self => new RealValue(Math.hypot(self.real, self.imaginary)))
   .close();
 
 new Prototype(RealType, RealValue)
-  .method('#u:-', RealType, self => new RealValue(-self.value))
-  .method('str', StringType, self => new StringValue('' + self.value))
-  .method('real', RealType, self => self)
+  .method('#u:-', '.r', self => new RealValue(-self.value))
+  .method('str', '.s', self => new StringValue('' + self.value))
+  .method('real', '.r', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  .method('imaginary', NaturalType, _self => NaturalValue.ZERO)
-  .method('abs', RealType, self => new RealValue(Math.abs(self.value)))
-  .method('ceil', IntegerType, self => new IntegerValue(Math.ceil(self.value)))
-  .method('floor', IntegerType, self => new IntegerValue(Math.floor(self.value)))
-  .method('round', IntegerType, self => new IntegerValue(Math.round(self.value)))
-  .method('trunc', IntegerType, self => new IntegerValue(Math.trunc(self.value)))
-  .method('sign', IntegerType, self => new IntegerValue(Math.sign(self.value)))
-  .method('sqrt', RealType, self => new RealValue(Math.sqrt(self.value)))
+  .method('imaginary', '.n', _self => NaturalValue.ZERO)
+  .method('abs', '.r', self => new RealValue(Math.abs(self.value)))
+  .method('ceil', '.i', self => new IntegerValue(Math.ceil(self.value)))
+  .method('floor', '.i', self => new IntegerValue(Math.floor(self.value)))
+  .method('round', '.i', self => new IntegerValue(Math.round(self.value)))
+  .method('trunc', '.i', self => new IntegerValue(Math.trunc(self.value)))
+  .method('sign', '.i', self => new IntegerValue(Math.sign(self.value)))
+  .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
 new Prototype(RationalType, RationalValue)
-  .method('#u:-', RationalType, self => new RationalValue(-self.numerator, self.denominator))
-  .method('str', StringType, self => new StringValue(`${self.numerator}/${self.denominator}`))
-  .method('real', RationalType, self => self)
+  .method('#u:-', '.t', self => new RationalValue(-self.numerator, self.denominator))
+  .method('str', '.s', self => new StringValue(self.toString()))
+  .method('real', '.t', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  .method('imaginary', NaturalType, _self => NaturalValue.ZERO)
+  .method('imaginary', '.n', _self => NaturalValue.ZERO)
   .method(
     'abs',
-    RationalType,
+    '.t',
     self => new RationalValue(Math.abs(self.numerator), Math.abs(self.denominator)),
   )
-  .method(
-    'ceil',
-    IntegerType,
-    self => new IntegerValue(Math.ceil(self.numerator / self.denominator)),
-  )
-  .method(
-    'floor',
-    IntegerType,
-    self => new IntegerValue(Math.floor(self.numerator / self.denominator)),
-  )
-  .method(
-    'round',
-    IntegerType,
-    self => new IntegerValue(Math.round(self.numerator / self.denominator)),
-  )
-  .method(
-    'trunc',
-    IntegerType,
-    self => new IntegerValue(Math.trunc(self.numerator / self.denominator)),
-  )
-  .method(
-    'sign',
-    IntegerType,
-    self => new IntegerValue(Math.sign(self.numerator / self.denominator)),
-  )
-  .method('sqrt', RealType, self => new RealValue(Math.sqrt(self.numerator / self.denominator)))
+  .method('ceil', '.i', self => new IntegerValue(Math.ceil(self.numerator / self.denominator)))
+  .method('floor', '.i', self => new IntegerValue(Math.floor(self.numerator / self.denominator)))
+  .method('round', '.i', self => new IntegerValue(Math.round(self.numerator / self.denominator)))
+  .method('trunc', '.i', self => new IntegerValue(Math.trunc(self.numerator / self.denominator)))
+  .method('sign', '.i', self => new IntegerValue(Math.sign(self.numerator / self.denominator)))
+  .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.numerator / self.denominator)))
   .close();
 
 new Prototype(IntegerType, IntegerValue)
-  .method('#u:-', IntegerType, self => new IntegerValue(-self.value))
-  .method('#u:~', IntegerType, self => new IntegerValue(~self.value))
-  .method('str', StringType, self => new StringValue('' + self.value))
-  .method('real', IntegerType, self => self)
+  .method('#u:-', '.i', self => new IntegerValue(-self.value))
+  .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .method('str', '.s', self => new StringValue('' + self.value))
+  .method('real', '.i', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  .method('imaginary', NaturalType, _self => NaturalValue.ZERO)
-  .method('abs', NaturalType, self => new NaturalValue(Math.abs(self.value)))
-  .method('ceil', IntegerType, self => self)
-  .method('floor', IntegerType, self => self)
-  .method('round', IntegerType, self => self)
-  .method('trunc', IntegerType, self => self)
-  .method('sign', IntegerType, self => new IntegerValue(Math.sign(self.value)))
-  .method('sqrt', RealType, self => new RealValue(Math.sqrt(self.value)))
+  .method('imaginary', '.n', _self => NaturalValue.ZERO)
+  .method('abs', '.n', self => new NaturalValue(Math.abs(self.value)))
+  .method('ceil', '.i', self => self)
+  .method('floor', '.i', self => self)
+  .method('round', '.i', self => self)
+  .method('trunc', '.i', self => self)
+  .method('sign', '.i', self => new IntegerValue(Math.sign(self.value)))
+  .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
 new Prototype(NaturalType, NaturalValue)
-  .method('#u:-', IntegerType, self => new IntegerValue(-self.value))
-  .method('#u:~', IntegerType, self => new IntegerValue(~self.value))
-  .method('str', StringType, self => new StringValue('' + self.value))
-  .method('real', NaturalType, self => self)
+  .method('#u:-', '.i', self => new IntegerValue(-self.value))
+  .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .method('str', '.s', self => new StringValue('' + self.value))
+  .method('real', '.n', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  .method('imaginary', NaturalType, _self => NaturalValue.ZERO)
-  .method('abs', NaturalType, self => self)
-  .method('ceil', NaturalType, self => self)
-  .method('floor', NaturalType, self => self)
-  .method('round', NaturalType, self => self)
-  .method('trunc', NaturalType, self => self)
-  .method('sign', IntegerType, self => new IntegerValue(Math.sign(self.value)))
-  .method('sqrt', RealType, self => new RealValue(Math.sqrt(self.value)))
+  .method('imaginary', '.n', _self => NaturalValue.ZERO)
+  .method('abs', '.n', self => self)
+  .method('ceil', '.n', self => self)
+  .method('floor', '.n', self => self)
+  .method('round', '.n', self => self)
+  .method('trunc', '.n', self => self)
+  .method('sign', '.i', self => new IntegerValue(Math.sign(self.value)))
+  .method('sqrt', '.r', self => new RealValue(Math.sqrt(self.value)))
   .close();
 
 new Prototype(StringType, StringValue)
-  .method('str', StringType, self => self)
-  .method('length', NaturalType, self => new NaturalValue(self.value.length))
-  .method('reverse', StringType, self => new StringValue(self.value.split('').reverse().join('')))
+  .method('str', '.s', self => self)
+  .method('length', '.n', self => new NaturalValue(self.value.length))
+  .method(
+    'startsWith',
+    's.b',
+    (self, prefix) => new BooleanValue(self.value.startsWith(prefix.marshal() as string)),
+  )
+  .method(
+    'endsWith',
+    's.b',
+    (self, suffix) => new BooleanValue(self.value.endsWith(suffix.marshal() as string)),
+  )
+  .method(
+    'slice',
+    'nn.s',
+    (self, start, end) =>
+      new StringValue(self.value.slice(start.marshal() as number, end.marshal() as number)),
+  )
+  .method(
+    'substring',
+    'nn.s',
+    (self, start, end) =>
+      new StringValue(self.value.substring(start.marshal() as number, end.marshal() as number)),
+  )
+  .methodRaw(
+    'split',
+    new LambdaType(StringType.INSTANCE, new ListType(StringType.INSTANCE)),
+    (self, separator) =>
+      new ListValue(
+        self.value.split(separator.marshal() as string).map(element => new StringValue(element)),
+      ),
+  )
+  .method(
+    'includes',
+    's.b',
+    (self, substring) => new BooleanValue(self.value.includes(substring.marshal() as string)),
+  )
+  .method('toLowerCase', '.s', self => new StringValue(self.value.toLowerCase()))
+  .method('toUpperCase', '.s', self => new StringValue(self.value.toUpperCase()))
+  .method('reverse', '.s', self => new StringValue(self.value.split('').reverse().join('')))
   .close();
