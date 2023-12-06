@@ -734,7 +734,7 @@ export class TupleType extends TauType {
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
-      return ListType.PROTOTYPE.leq(this, fields, constraints, substitution);
+      return TupleType.PROTOTYPE.leq(this, fields, constraints, substitution);
     } else if (other instanceof TupleType) {
       if (other.elements.length !== this.elements.length) {
         throw new TypeError(`cannot unify '${this}' and '${other}': different arities`);
