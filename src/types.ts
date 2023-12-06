@@ -89,16 +89,14 @@ export abstract class TauType implements TypeInterface {
     if (name.startsWith('#u:')) {
       return new TypeError(`'${this}' doesn't have the unary '${name.substring(3)}' operator`);
     } else if (name.startsWith('#b1:')) {
+      const operator = name.substring(4);
       return new TypeError(
-        `'${this}' cannot appear as the left-hand side of the binary '${name.substring(
-          4,
-        )}' operator`,
+        `'${this}' cannot appear as the left-hand side of the binary '${operator}' operator`,
       );
     } else if (name.startsWith('#b2:')) {
+      const operator = name.substring(4);
       return new TypeError(
-        `'${this}' cannot appear as the right-hand side of the binary '${name.substring(
-          4,
-        )}' operator`,
+        `'${this}' cannot appear as the right-hand side of the binary '${operator}' operator`,
       );
     } else {
       return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
