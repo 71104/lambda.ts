@@ -42,9 +42,9 @@ class Prototype<Type extends TauType, Value extends ValueInterface> {
     public readonly valueConstructor: ValueConstructor<Value>,
   ) {}
 
-  public method(
+  public method<Result extends TauType>(
     name: string,
-    result: TypeConstructor<Type>,
+    result: TypeConstructor<Result>,
     fn: (self: Value) => ValueInterface,
   ): Prototype<Type, Value> {
     this._types[name] = new LambdaType(this.typeConstructor.INSTANCE, result.INSTANCE);

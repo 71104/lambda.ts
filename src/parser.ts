@@ -39,6 +39,7 @@ import {
 
 import './operators.js';
 import './prototypes.js';
+import './lists.js';
 
 function unescapeString(input: string): string {
   return input
