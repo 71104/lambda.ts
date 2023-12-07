@@ -39,7 +39,6 @@ import {
   UndefinedValue,
 } from './values.js';
 
-import './operators.js';
 import './prototypes.js';
 
 function unescapeString(input: string): string {
