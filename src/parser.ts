@@ -295,6 +295,8 @@ export class Parser {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
       }
+      case 'plus':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'real': {
         const realValue = parseFloat(this._lexer.step());
         return new LiteralNode(new RealValue(realValue), RealType.INSTANCE);
@@ -353,8 +355,21 @@ export class Parser {
     return node;
   }
 
+  private _parse4(terminators: Token[]): NodeInterface {
+    const operators: Token[] = ['plus', 'minus'];
+    terminators = terminators.concat(operators);
+    let node = this._parse3(terminators);
+    while (operators.includes(this._lexer.token)) {
+      node = new ApplicationNode(
+        new ApplicationNode(FieldNode.createBinaryOperator(this._lexer.step()), node),
+        this._parse3(terminators),
+      );
+    }
+    return node;
+  }
+
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse3(terminators);
+    return this._parse4(terminators);
   }
 
   public parse(): NodeInterface {

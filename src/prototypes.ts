@@ -175,6 +175,19 @@ Prototype.createForIotaType(RationalType, RationalValue)
 Prototype.createForIotaType(IntegerType, IntegerValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .methodRaw('#b1:+', new LambdaType(VariableType.getNew(), VariableType.getNew()), (self, rhs) =>
+    rhs.getField('#b2:integer:+').cast(Closure).apply(self),
+  )
+  .methodRaw(
+    '#b2:integer:+',
+    new LambdaType(IntegerType.INSTANCE, IntegerType.INSTANCE),
+    (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value),
+  )
+  .methodRaw(
+    '#b2:natural:+',
+    new LambdaType(NaturalType.INSTANCE, IntegerType.INSTANCE),
+    (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value + self.value),
+  )
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.i', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -191,6 +204,19 @@ Prototype.createForIotaType(IntegerType, IntegerValue)
 Prototype.createForIotaType(NaturalType, NaturalValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .methodRaw('#b1:+', new LambdaType(VariableType.getNew(), VariableType.getNew()), (self, rhs) =>
+    rhs.getField('#b2:natural:+').cast(Closure).apply(self),
+  )
+  .methodRaw(
+    '#b2:integer:+',
+    new LambdaType(IntegerType.INSTANCE, IntegerType.INSTANCE),
+    (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value),
+  )
+  .methodRaw(
+    '#b2:natural:+',
+    new LambdaType(NaturalType.INSTANCE, NaturalType.INSTANCE),
+    (self, lhs) => new NaturalValue(lhs.cast(NaturalValue).value + self.value),
+  )
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.n', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
