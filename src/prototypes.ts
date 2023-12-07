@@ -13,6 +13,9 @@ import {
   RealType,
   StringType,
   TauType,
+  TypeInterface,
+  TypeScheme,
+  UndefinedType,
   VariableType,
 } from './types.js';
 import {
@@ -51,7 +54,7 @@ const IOTA_TYPES: { [name: string]: IotaType } = {
 };
 
 class Prototype<Value extends ValueInterface> {
-  private readonly _types: { [name: string]: TauType } = Object.create(null);
+  private readonly _types: { [name: string]: TypeInterface } = Object.create(null);
   private readonly _values: { [name: string]: Closure } = Object.create(null);
 
   protected constructor(
@@ -73,7 +76,7 @@ class Prototype<Value extends ValueInterface> {
 
   public methodRawIncludingSelf(
     name: string,
-    type: TauType,
+    type: TypeInterface,
     fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
   ): Prototype<Value> {
     this._types[name] = type;
@@ -175,8 +178,26 @@ Prototype.createForIotaType(RationalType, RationalValue)
 Prototype.createForIotaType(IntegerType, IntegerValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
-  .methodRaw('#b1:+', new LambdaType(VariableType.getNew(), VariableType.getNew()), (self, rhs) =>
-    rhs.getField('#b2:integer:+').cast(Closure).apply(self),
+  .methodRawIncludingSelf(
+    '#b1:+',
+    new TypeScheme(
+      'result',
+      UndefinedType.INSTANCE,
+      new TypeScheme(
+        'rhs',
+        ObjectType.create({
+          '#b2:integer:+': new LambdaType(
+            ObjectType.EMPTY,
+            new LambdaType(IntegerType.INSTANCE, new VariableType('result')),
+          ),
+        }),
+        new LambdaType(
+          IntegerType.INSTANCE,
+          new LambdaType(new VariableType('rhs'), new VariableType('result')),
+        ),
+      ),
+    ),
+    (self, rhs) => rhs.getField('#b2:integer:+').cast(Closure).apply(self),
   )
   .methodRaw(
     '#b2:integer:+',
@@ -204,8 +225,26 @@ Prototype.createForIotaType(IntegerType, IntegerValue)
 Prototype.createForIotaType(NaturalType, NaturalValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
-  .methodRaw('#b1:+', new LambdaType(VariableType.getNew(), VariableType.getNew()), (self, rhs) =>
-    rhs.getField('#b2:natural:+').cast(Closure).apply(self),
+  .methodRawIncludingSelf(
+    '#b1:+',
+    new TypeScheme(
+      'result',
+      UndefinedType.INSTANCE,
+      new TypeScheme(
+        'rhs',
+        ObjectType.create({
+          '#b2:natural:+': new LambdaType(
+            ObjectType.EMPTY,
+            new LambdaType(NaturalType.INSTANCE, new VariableType('result')),
+          ),
+        }),
+        new LambdaType(
+          NaturalType.INSTANCE,
+          new LambdaType(new VariableType('rhs'), new VariableType('result')),
+        ),
+      ),
+    ),
+    (self, rhs) => rhs.getField('#b2:natural:+').cast(Closure).apply(self),
   )
   .methodRaw(
     '#b2:integer:+',
@@ -304,7 +343,11 @@ new ListPrototype((inner, prototype: ListPrototype) =>
     .methodRawIncludingSelf(
       'join',
       new LambdaType(
-        ObjectType.create({ str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE) }),
+        new ListType(
+          ObjectType.create({
+            str: new LambdaType(ObjectType.EMPTY, StringType.INSTANCE),
+          }),
+        ),
         new LambdaType(StringType.INSTANCE, StringType.INSTANCE),
       ),
       (self, separator) =>

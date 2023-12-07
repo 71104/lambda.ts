@@ -393,9 +393,9 @@ export class VariableType extends TauType {
 }
 
 export class FieldSet {
-  public constructor(private _fields: Context<TauType> = Context.create<TauType>()) {}
+  public constructor(private _fields: TypeContext = EMPTY_TYPE_CONTEXT) {}
 
-  public add(fields: { [name: string]: TauType }): FieldSet {
+  public add(fields: { [name: string]: TypeInterface }): FieldSet {
     this._fields = this._fields.pushAll(fields);
     return this;
   }
@@ -417,11 +417,14 @@ export class FieldSet {
     constraints: Constraints,
     substitution: Substitution,
   ): TypingResults {
-    if (this._fields.has(name)) {
-      return this._fields.top(name).bindThis(parent, constraints, substitution);
-    } else {
+    if (!this._fields.has(name)) {
       throw new TypeError(`'${parent}' has no field named ${JSON.stringify(name)}`);
     }
+    let type: TauType;
+    ({ type, constraints, substitution } = this._fields
+      .top(name)
+      .instantiate(constraints, substitution));
+    return type.bindThis(parent, constraints, substitution);
   }
 
   public bind(
@@ -429,12 +432,12 @@ export class FieldSet {
     constraints: Constraints,
     substitution: Substitution,
   ): FieldBindingResults {
-    const hash = this._fields.reduce<{ [name: string]: TauType }>((hash, name, type) => {
+    const hash = this._fields.reduce<{ [name: string]: TauType }>((hash, name) => {
       ({
         type: hash[name],
         constraints,
         substitution,
-      } = type.bindThis(parent, constraints, substitution));
+      } = this.getField(parent, name, constraints, substitution));
       return hash;
     }, Object.create(null));
     return new FieldBindingResults(
@@ -451,19 +454,32 @@ export class FieldSet {
   ): TypingResults {
     const hash: { [name: string]: TauType } = Object.create(null);
     this._fields.forEach((name, type) => {
+      ({
+        type: hash[name],
+        constraints,
+        substitution,
+      } = type.instantiate(constraints, substitution));
       if (other._fields.has(name)) {
+        let otherField: TauType;
+        ({
+          type: otherField,
+          constraints,
+          substitution,
+        } = other._fields.top(name).instantiate(constraints, substitution));
         ({
           type: hash[name],
           constraints,
           substitution,
-        } = type.intersect(other._fields.top(name), constraints, substitution));
-      } else {
-        hash[name] = type;
+        } = hash[name].intersect(otherField, constraints, substitution));
       }
     });
     other._fields.forEach((name, type) => {
       if (!this._fields.has(name)) {
-        hash[name] = type;
+        ({
+          type: hash[name],
+          constraints,
+          substitution,
+        } = type.instantiate(constraints, substitution));
       }
     });
     return new TypingResults(
@@ -489,7 +505,7 @@ export class FieldSet {
           type: field,
           constraints,
           substitution,
-        } = this._fields.top(name).bindThis(parent, constraints, substitution));
+        } = this.getField(parent, name, constraints, substitution));
         return field.leq(type, constraints, substitution);
       },
       new Environment(constraints, substitution),
@@ -504,7 +520,7 @@ export class ObjectType extends TauType {
     super();
   }
 
-  public static create(fields: { [name: string]: TauType }): ObjectType {
+  public static create(fields: { [name: string]: TypeInterface }): ObjectType {
     return new ObjectType(new FieldSet(Context.create(fields)));
   }
 
