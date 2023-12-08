@@ -385,12 +385,13 @@ export class VariableType extends TauType {
         return new Environment(constraints, substitution);
       }
     } else {
-      ({ constraints, substitution } = other.leq(
+      let type: TauType;
+      ({ type, constraints, substitution } = other.intersect(
         this.getConstraint(constraints),
         constraints,
         substitution,
       ));
-      return new Environment(constraints, substitution.push(this.name, other));
+      return new Environment(constraints, substitution.push(this.name, type));
     }
   }
 }
