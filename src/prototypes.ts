@@ -451,5 +451,23 @@ new ListPrototype((inner, prototype: ListPrototype) =>
             .map(element => element.getField('str').marshal())
             .join(separator.marshal() as string),
         ),
+    )
+    .methodRawIncludingSelf(
+      'map',
+      new TypeScheme(
+        'out',
+        UndefinedType.INSTANCE,
+        new LambdaType(
+          new ListType(inner),
+          new LambdaType(
+            new LambdaType(inner, new VariableType('out')),
+            new ListType(new VariableType('out')),
+          ),
+        ),
+      ),
+      (self, f) => {
+        const closure = f.cast(Closure);
+        return new ListValue([...self.elements].map(element => closure.apply(element)));
+      },
     ),
 ).close();
