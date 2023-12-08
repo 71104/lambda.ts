@@ -274,15 +274,19 @@ export class FieldNode implements NodeInterface {
   ) {}
 
   public static create(name: string): LambdaNode {
-    return new LambdaNode('$1', null, new FieldNode('$1', name));
+    return new LambdaNode(
+      '$1',
+      ObjectType.create({ [name]: VariableType.getNew() }),
+      new FieldNode('$1', name),
+    );
   }
 
   public static createUnaryOperator(name: string): LambdaNode {
-    return new LambdaNode('$1', null, new FieldNode('$1', `#u:${name}`));
+    return FieldNode.create(`#u:${name}`);
   }
 
   public static createBinaryOperator(name: string): LambdaNode {
-    return new LambdaNode('$1', null, new FieldNode('$1', `#b1:${name}`));
+    return FieldNode.create(`#b1:${name}`);
   }
 
   public getFreeVariables(): Set<string> {
