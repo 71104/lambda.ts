@@ -452,6 +452,16 @@ new ListPrototype((inner, prototype: ListPrototype) =>
             .join(separator.marshal() as string),
         ),
     )
+    .methodRaw(
+      'filter',
+      new LambdaType(new LambdaType(inner, BooleanType.INSTANCE), new ListType(inner)),
+      (self, predicate) => {
+        const closure = predicate.cast(Closure);
+        return new ListValue(
+          [...self.elements].filter(element => closure.apply(element).marshal()),
+        );
+      },
+    )
     .methodRawIncludingSelf(
       'map',
       new TypeScheme(
@@ -468,6 +478,50 @@ new ListPrototype((inner, prototype: ListPrototype) =>
       (self, f) => {
         const closure = f.cast(Closure);
         return new ListValue([...self.elements].map(element => closure.apply(element)));
+      },
+    )
+    .methodRawIncludingSelf(
+      'reduce',
+      new TypeScheme(
+        'accumulator',
+        UndefinedType.INSTANCE,
+        new LambdaType(
+          new ListType(inner),
+          new LambdaType(
+            new LambdaType(
+              new VariableType('accumulator'),
+              new LambdaType(inner, new VariableType('accumulator')),
+            ),
+            new LambdaType(new VariableType('accumulator'), new VariableType('accumulator')),
+          ),
+        ),
+      ),
+      (self, reducer, accumulator) => {
+        const closure = reducer.cast(Closure);
+        return [...self.elements].reduce(
+          (accumulator, element) => closure.apply(accumulator).cast(Closure).apply(element),
+          accumulator,
+        );
+      },
+    )
+    .methodRaw(
+      'every',
+      new LambdaType(new LambdaType(inner, BooleanType.INSTANCE), BooleanType.INSTANCE),
+      (self, predicate) => {
+        const closure = predicate.cast(Closure);
+        return new BooleanValue(
+          [...self.elements].every(element => closure.apply(element).marshal()),
+        );
+      },
+    )
+    .methodRaw(
+      'some',
+      new LambdaType(new LambdaType(inner, BooleanType.INSTANCE), BooleanType.INSTANCE),
+      (self, predicate) => {
+        const closure = predicate.cast(Closure);
+        return new BooleanValue(
+          [...self.elements].some(element => closure.apply(element).marshal()),
+        );
       },
     ),
 ).close();

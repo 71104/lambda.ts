@@ -575,7 +575,7 @@ export class ObjectType extends TauType {
       return this._fields.intersect(other._fields, constraints, substitution);
     } else {
       ({ constraints, substitution } = other.leq(this, constraints, substitution));
-      return new TypingResults(this.substitute(substitution), constraints, substitution);
+      return new TypingResults(other.substitute(substitution), constraints, substitution);
     }
   }
 
