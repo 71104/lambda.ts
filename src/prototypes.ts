@@ -54,6 +54,7 @@ const IOTA_TYPES: { [name: string]: IotaType } = {
 };
 
 class Prototype<Value extends ValueInterface> {
+  private readonly _selfName: string;
   private readonly _types: { [name: string]: TypeInterface } = Object.create(null);
   private readonly _values: { [name: string]: Closure } = Object.create(null);
 
@@ -61,7 +62,9 @@ class Prototype<Value extends ValueInterface> {
     private readonly _prototype: FieldSet,
     private readonly _selfType: TauType,
     public readonly valueConstructor: ValueConstructor<Value>,
-  ) {}
+  ) {
+    this._selfName = this._selfType.toString();
+  }
 
   public static createForIotaType<Type extends TauType, Value extends ValueInterface>(
     typeConstructor: TypeConstructor<Type>,
@@ -116,6 +119,45 @@ class Prototype<Value extends ValueInterface> {
     return this.methodRaw(name, type, fn);
   }
 
+  public operator1(name: string): Prototype<Value> {
+    return this.methodRawIncludingSelf(
+      `#b1:${name}`,
+      new TypeScheme(
+        'result',
+        UndefinedType.INSTANCE,
+        new TypeScheme(
+          'rhs',
+          ObjectType.create({
+            [`#b2:${this._selfName}:+`]: new LambdaType(
+              ObjectType.EMPTY,
+              new LambdaType(this._selfType, new VariableType('result')),
+            ),
+          }),
+          new LambdaType(
+            this._selfType,
+            new LambdaType(new VariableType('rhs'), new VariableType('result')),
+          ),
+        ),
+      ),
+      (self, rhs) => rhs.getField(`#b2:${this._selfName}:+`).cast(Closure).apply(self),
+    );
+  }
+
+  public operator2(
+    name: string,
+    signature: string,
+    fn: (self: Value, ...args: ValueInterface[]) => ValueInterface,
+  ): Prototype<Value> {
+    const match = signature.match(/^([bcrtins])\.([bcrtins])$/);
+    if (!match) {
+      throw new InternalError(`invalid method signature: ${JSON.stringify(signature)}`);
+    }
+    const [, lhsName, resultName] = match;
+    const lhs = IOTA_TYPES[lhsName];
+    const result = IOTA_TYPES[resultName];
+    return this.methodRaw(`#b2:${lhs}:${name}`, new LambdaType(lhs, result), fn);
+  }
+
   public close(): void {
     this._prototype.add(this._types);
     this.valueConstructor.PROTOTYPE = this.valueConstructor.PROTOTYPE.pushAll(this._values);
@@ -129,6 +171,11 @@ Prototype.createForIotaType(BooleanType, BooleanValue)
 
 Prototype.createForIotaType(ComplexType, ComplexValue)
   .method('#u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
+  .operator1('+')
+  .operator1('-')
+  .operator1('*')
+  .operator1('/')
+  .operator1('**')
   .method('str', '.s', self => {
     if (self.imaginary < 0) {
       return new StringValue(`${self.real}-${Math.abs(self.imaginary)}i`);
@@ -143,6 +190,17 @@ Prototype.createForIotaType(ComplexType, ComplexValue)
 
 Prototype.createForIotaType(RealType, RealValue)
   .method('#u:-', '.r', self => new RealValue(-self.value))
+  .operator1('+')
+  .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
+  .operator2('+', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value + self.value))
+  .operator2('+', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value + self.value))
+  .operator1('-')
+  .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
+  .operator2('-', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value - self.value))
+  .operator2('-', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value - self.value))
+  .operator1('*')
+  .operator1('/')
+  .operator1('**')
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.r', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -158,6 +216,11 @@ Prototype.createForIotaType(RealType, RealValue)
 
 Prototype.createForIotaType(RationalType, RationalValue)
   .method('#u:-', '.t', self => new RationalValue(-self.numerator, self.denominator))
+  .operator1('+')
+  .operator1('-')
+  .operator1('*')
+  .operator1('/')
+  .operator1('**')
   .method('str', '.s', self => new StringValue(self.toString()))
   .method('real', '.t', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -178,37 +241,17 @@ Prototype.createForIotaType(RationalType, RationalValue)
 Prototype.createForIotaType(IntegerType, IntegerValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
-  .methodRawIncludingSelf(
-    '#b1:+',
-    new TypeScheme(
-      'result',
-      UndefinedType.INSTANCE,
-      new TypeScheme(
-        'rhs',
-        ObjectType.create({
-          '#b2:integer:+': new LambdaType(
-            ObjectType.EMPTY,
-            new LambdaType(IntegerType.INSTANCE, new VariableType('result')),
-          ),
-        }),
-        new LambdaType(
-          IntegerType.INSTANCE,
-          new LambdaType(new VariableType('rhs'), new VariableType('result')),
-        ),
-      ),
-    ),
-    (self, rhs) => rhs.getField('#b2:integer:+').cast(Closure).apply(self),
-  )
-  .methodRaw(
-    '#b2:integer:+',
-    new LambdaType(IntegerType.INSTANCE, IntegerType.INSTANCE),
-    (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value),
-  )
-  .methodRaw(
-    '#b2:natural:+',
-    new LambdaType(NaturalType.INSTANCE, IntegerType.INSTANCE),
-    (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value + self.value),
-  )
+  .operator1('+')
+  .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
+  .operator2('+', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value))
+  .operator2('+', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value + self.value))
+  .operator1('-')
+  .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
+  .operator2('-', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value - self.value))
+  .operator2('-', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value - self.value))
+  .operator1('*')
+  .operator1('/')
+  .operator1('**')
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.i', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -225,37 +268,17 @@ Prototype.createForIotaType(IntegerType, IntegerValue)
 Prototype.createForIotaType(NaturalType, NaturalValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
-  .methodRawIncludingSelf(
-    '#b1:+',
-    new TypeScheme(
-      'result',
-      UndefinedType.INSTANCE,
-      new TypeScheme(
-        'rhs',
-        ObjectType.create({
-          '#b2:natural:+': new LambdaType(
-            ObjectType.EMPTY,
-            new LambdaType(NaturalType.INSTANCE, new VariableType('result')),
-          ),
-        }),
-        new LambdaType(
-          NaturalType.INSTANCE,
-          new LambdaType(new VariableType('rhs'), new VariableType('result')),
-        ),
-      ),
-    ),
-    (self, rhs) => rhs.getField('#b2:natural:+').cast(Closure).apply(self),
-  )
-  .methodRaw(
-    '#b2:integer:+',
-    new LambdaType(IntegerType.INSTANCE, IntegerType.INSTANCE),
-    (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value),
-  )
-  .methodRaw(
-    '#b2:natural:+',
-    new LambdaType(NaturalType.INSTANCE, NaturalType.INSTANCE),
-    (self, lhs) => new NaturalValue(lhs.cast(NaturalValue).value + self.value),
-  )
+  .operator1('+')
+  .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
+  .operator2('+', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value))
+  .operator2('+', 'n.n', (self, lhs) => new NaturalValue(lhs.cast(NaturalValue).value + self.value))
+  .operator1('-')
+  .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
+  .operator2('-', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value - self.value))
+  .operator2('-', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value - self.value))
+  .operator1('*')
+  .operator1('/')
+  .operator1('**')
   .method('str', '.s', self => new StringValue('' + self.value))
   .method('real', '.n', self => self)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -270,6 +293,8 @@ Prototype.createForIotaType(NaturalType, NaturalValue)
   .close();
 
 Prototype.createForIotaType(StringType, StringValue)
+  .operator1('+')
+  .operator2('+', 's.s', (self, lhs) => new StringValue(lhs.cast(StringValue).value + self.value))
   .method('str', '.s', self => self)
   .method('length', '.n', self => new NaturalValue(self.value.length))
   .method(
@@ -338,6 +363,14 @@ new ListPrototype((inner, prototype: ListPrototype) =>
         return new ListValue(self.array, self.offset + 1, self.count - 1);
       } else {
         return self;
+      }
+    })
+    .methodRaw('at', new LambdaType(IntegerType.INSTANCE, inner), (self, index) => {
+      const i = index.cast(IntegerValue).value;
+      if (i >= 0 && i < self.count) {
+        return self.array[self.offset + i];
+      } else {
+        throw new RuntimeError(`index out of bounds`);
       }
     })
     .methodRawIncludingSelf(

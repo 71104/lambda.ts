@@ -93,13 +93,16 @@ export abstract class TauType implements TypeInterface {
       return new TypeError(
         `'${this}' cannot appear as the left-hand side of the binary '${operator}' operator`,
       );
-    } else if (name.startsWith('#b2:')) {
-      const operator = name.substring(4);
-      return new TypeError(
-        `'${this}' cannot appear as the right-hand side of the binary '${operator}' operator`,
-      );
     } else {
-      return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
+      const match = name.match(/^#b2:([a-z]+):(.+)$/);
+      if (match) {
+        const [, lhs, operator] = match;
+        return new TypeError(
+          `'${this}' cannot appear as the right-hand side of the binary '${operator}' operator when the left-hand side is '${lhs}'`,
+        );
+      } else {
+        return new TypeError(`'${this}' has no field named ${JSON.stringify(name)}`);
+      }
     }
   }
 

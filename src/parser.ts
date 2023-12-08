@@ -290,6 +290,8 @@ export class Parser {
       case 'keyword:undefined':
         this._lexer.next();
         return new LiteralNode(UndefinedValue.INSTANCE, UndefinedType.INSTANCE);
+      case 'minus':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'natural': {
         const naturalValue = parseInt(this._lexer.step(), 10);
         return new LiteralNode(new NaturalValue(naturalValue), NaturalType.INSTANCE);
