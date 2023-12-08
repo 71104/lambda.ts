@@ -128,7 +128,7 @@ class Prototype<Value extends ValueInterface> {
         new TypeScheme(
           'rhs',
           ObjectType.create({
-            [`#b2:${this._selfName}:+`]: new LambdaType(
+            [`#b2:${this._selfName}:${name}`]: new LambdaType(
               ObjectType.EMPTY,
               new LambdaType(this._selfType, new VariableType('result')),
             ),
@@ -139,7 +139,7 @@ class Prototype<Value extends ValueInterface> {
           ),
         ),
       ),
-      (self, rhs) => rhs.getField(`#b2:${this._selfName}:+`).cast(Closure).apply(self),
+      (self, rhs) => rhs.getField(`#b2:${this._selfName}:${name}`).cast(Closure).apply(self),
     );
   }
 
@@ -172,7 +172,45 @@ Prototype.createForIotaType(BooleanType, BooleanValue)
 Prototype.createForIotaType(ComplexType, ComplexValue)
   .method('#u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
   .operator1('+')
+  .operator2('+', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real + self.real, imaginary + self.imaginary);
+  })
+  .operator2(
+    '+',
+    'r.c',
+    (self, lhs) => new ComplexValue(lhs.cast(RealValue).value + self.real, self.imaginary),
+  )
+  .operator2(
+    '+',
+    'i.c',
+    (self, lhs) => new ComplexValue(lhs.cast(IntegerValue).value + self.real, self.imaginary),
+  )
+  .operator2(
+    '+',
+    'n.c',
+    (self, lhs) => new ComplexValue(lhs.cast(NaturalValue).value + self.real, self.imaginary),
+  )
   .operator1('-')
+  .operator2('-', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real - self.real, imaginary - self.imaginary);
+  })
+  .operator2(
+    '-',
+    'r.c',
+    (self, lhs) => new ComplexValue(lhs.cast(RealValue).value - self.real, -self.imaginary),
+  )
+  .operator2(
+    '-',
+    'i.c',
+    (self, lhs) => new ComplexValue(lhs.cast(IntegerValue).value - self.real, -self.imaginary),
+  )
+  .operator2(
+    '-',
+    'n.c',
+    (self, lhs) => new ComplexValue(lhs.cast(NaturalValue).value - self.real, -self.imaginary),
+  )
   .operator1('*')
   .operator1('/')
   .operator1('**')
@@ -191,10 +229,18 @@ Prototype.createForIotaType(ComplexType, ComplexValue)
 Prototype.createForIotaType(RealType, RealValue)
   .method('#u:-', '.r', self => new RealValue(-self.value))
   .operator1('+')
+  .operator2('+', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real + self.value, imaginary);
+  })
   .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
   .operator2('+', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value + self.value))
   .operator2('+', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value + self.value))
   .operator1('-')
+  .operator2('-', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real - self.value, imaginary);
+  })
   .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
   .operator2('-', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value - self.value))
   .operator2('-', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value - self.value))
@@ -242,10 +288,18 @@ Prototype.createForIotaType(IntegerType, IntegerValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
   .operator1('+')
+  .operator2('+', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real + self.value, imaginary);
+  })
   .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
   .operator2('+', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value))
   .operator2('+', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value + self.value))
   .operator1('-')
+  .operator2('-', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real - self.value, imaginary);
+  })
   .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
   .operator2('-', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value - self.value))
   .operator2('-', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value - self.value))
@@ -269,10 +323,18 @@ Prototype.createForIotaType(NaturalType, NaturalValue)
   .method('#u:-', '.i', self => new IntegerValue(-self.value))
   .method('#u:~', '.i', self => new IntegerValue(~self.value))
   .operator1('+')
+  .operator2('+', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real + self.value, imaginary);
+  })
   .operator2('+', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value + self.value))
   .operator2('+', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value + self.value))
   .operator2('+', 'n.n', (self, lhs) => new NaturalValue(lhs.cast(NaturalValue).value + self.value))
   .operator1('-')
+  .operator2('-', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real - self.value, imaginary);
+  })
   .operator2('-', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value - self.value))
   .operator2('-', 'i.i', (self, lhs) => new IntegerValue(lhs.cast(IntegerValue).value - self.value))
   .operator2('-', 'n.i', (self, lhs) => new IntegerValue(lhs.cast(NaturalValue).value - self.value))
