@@ -194,15 +194,16 @@ export class Parser {
 
   private _parseLetInternal(terminators: Token[]): NodeInterface {
     const name = this._lexer.expect('identifier');
+    const type = this._parseOptionalType();
     this._lexer.skip('assign');
     const expression = this._parseRoot(['comma', 'keyword:in']);
     switch (this._lexer.token) {
       case 'comma':
         this._lexer.next();
-        return new LetNode(name, expression, this._parseLetInternal(terminators));
+        return new LetNode(name, type, expression, this._parseLetInternal(terminators));
       case 'keyword:in':
         this._lexer.next();
-        return new LetNode(name, expression, this._parseRoot(terminators));
+        return new LetNode(name, type, expression, this._parseRoot(terminators));
       default:
         throw new InternalError(`unexpected token '${this._lexer.token}'`);
     }

@@ -479,6 +479,7 @@ export class ApplicationNode implements NodeInterface {
 export class LetNode implements NodeInterface {
   public constructor(
     public readonly name: string,
+    public readonly type: TauType | null,
     public readonly expression: NodeInterface,
     public readonly rest: NodeInterface,
   ) {}
@@ -500,6 +501,10 @@ export class LetNode implements NodeInterface {
       constraints,
       substitution,
     } = this.expression.getType(context, constraints, substitution));
+    if (this.type) {
+      ({ constraints, substitution } = expression.leq(this.type, constraints, substitution));
+      expression = this.type.substitute(substitution);
+    }
     context = context.map((_name, type) => type.substitute(substitution));
     return this.rest.getType(
       context.push(this.name, expression.close(context)),
