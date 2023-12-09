@@ -28,6 +28,7 @@ import {
   RationalValue,
   RealValue,
   StringValue,
+  UndefinedValue,
   ValueContext,
   ValueInterface,
 } from './values.js';
@@ -543,6 +544,24 @@ new ListPrototype((inner, prototype: ListPrototype) =>
             .map(element => element.getField('str').marshal())
             .join(separator.marshal() as string),
         ),
+    )
+    .methodRawIncludingSelf(
+      'forEach',
+      new TypeScheme(
+        'result',
+        UndefinedType.INSTANCE,
+        new LambdaType(
+          new ListType(inner),
+          new LambdaType(new LambdaType(inner, new VariableType('result')), UndefinedType.INSTANCE),
+        ),
+      ),
+      (self, callback) => {
+        const closure = callback.cast(Closure);
+        for (const element of self.elements) {
+          closure.apply(element);
+        }
+        return UndefinedValue.INSTANCE;
+      },
     )
     .methodRaw(
       'filter',
