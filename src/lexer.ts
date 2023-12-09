@@ -39,7 +39,9 @@ export type Token =
   | 'not-equals'
   | 'pipe'
   | 'plus'
+  | 'power'
   | 'real'
+  | 'slash'
   | 'string'
   | 'square-left'
   | 'square-right'
@@ -100,6 +102,7 @@ export class Lexer {
     ['equals', /^==/],
     ['fat-arrow', /^=>/],
     ['not-equals', /^!=/],
+    ['power', /^\*\*/],
 
     // single-character symbols
     ['assign', /^=/],
@@ -114,6 +117,7 @@ export class Lexer {
     ['minus', /^-/],
     ['pipe', /^\|/],
     ['plus', /^\+/],
+    ['slash', /^\//],
     ['square-left', /^\[/],
     ['square-right', /^\]/],
     ['tilde', /^~/],
