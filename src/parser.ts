@@ -27,6 +27,7 @@ import {
   StringType,
   TauType,
   UndefinedType,
+  UnionType,
   VariableType,
 } from './types.js';
 import {
@@ -130,12 +131,21 @@ export class Parser {
     }
   }
 
+  private _parseUnionType(): TauType {
+    const types = [this._parseType()];
+    while (this._lexer.token === 'pipe') {
+      this._lexer.next();
+      types.push(this._parseType());
+    }
+    return UnionType.create(types);
+  }
+
   private _parseOptionalType(): TauType | null {
     if ('colon' !== this._lexer.token) {
       return null;
     } else {
       this._lexer.next();
-      return this._parseType();
+      return this._parseUnionType();
     }
   }
 
@@ -383,8 +393,18 @@ export class Parser {
     return node;
   }
 
+  private _parse6(terminators: Token[]): NodeInterface {
+    const terminatorsPlusDollar = terminators.concat('dollar');
+    let node = this._parse5(terminatorsPlusDollar);
+    while (!terminators.includes(this._lexer.token)) {
+      this._lexer.skip('dollar');
+      node = new ApplicationNode(node, this._parse5(terminatorsPlusDollar));
+    }
+    return node;
+  }
+
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse5(terminators);
+    return this._parse6(terminators);
   }
 
   public parse(): NodeInterface {

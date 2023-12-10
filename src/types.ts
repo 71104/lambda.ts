@@ -148,6 +148,10 @@ export abstract class TauType implements TypeInterface {
     }
   }
 
+  public leqSimple(other: TauType): boolean {
+    return null !== this.leqNoThrow(other, EMPTY_TYPE_CONSTRAINTS, EMPTY_TYPE_SUBSTITUTION);
+  }
+
   public static min(
     first: TauType,
     second: TauType,
@@ -187,9 +191,11 @@ export abstract class TauType implements TypeInterface {
   }
 
   public close(context: TypeContext): TypeInterface {
-    const freeVariables = context.reduce<Set<string>>(
-      (variables, _name, type) => new Set<string>([...variables, ...type.getFreeVariables()]),
-      new Set<string>(),
+    const freeVariables = new Set<string>(
+      context.reduce<string[]>(
+        (variables, _name, type) => [...variables, ...type.getFreeVariables()],
+        [],
+      ),
     );
     let type: TypeInterface = this;
     for (const name of this.getFreeVariables()) {
@@ -405,9 +411,11 @@ export class FieldSet {
   }
 
   public getFreeVariables(): Set<string> {
-    return this._fields.reduce<Set<string>>(
-      (variables, _name, type) => new Set<string>([...variables, ...type.getFreeVariables()]),
-      new Set<string>(),
+    return new Set<string>(
+      this._fields.reduce<string[]>(
+        (variables, _name, type) => [...variables, ...type.getFreeVariables()],
+        [],
+      ),
     );
   }
 
@@ -476,6 +484,7 @@ export class FieldSet {
           substitution,
         } = hash[name].intersect(otherField, constraints, substitution));
       }
+      // TODO: what variables do we need to close?
     });
     other._fields.forEach((name, type) => {
       if (!this._fields.has(name)) {
@@ -486,6 +495,37 @@ export class FieldSet {
         } = type.instantiate(constraints, substitution));
       }
     });
+    return new TypingResults(
+      ObjectType.create(hash).substitute(substitution),
+      constraints,
+      substitution,
+    );
+  }
+
+  public union(
+    other: FieldSet,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const hash = this._fields.reduce<{ [name: string]: TauType }>((hash, name, type) => {
+      if (other._fields.has(name)) {
+        let thisField: TauType;
+        ({
+          type: thisField,
+          constraints,
+          substitution,
+        } = type.instantiate(constraints, substitution));
+        let otherField: TauType;
+        ({
+          type: otherField,
+          constraints,
+          substitution,
+        } = other._fields.top(name).instantiate(constraints, substitution));
+        // TODO: what variables do we need to close?
+        hash[name] = UnionType.create([thisField, otherField]);
+      }
+      return hash;
+    }, Object.create(null));
     return new TypingResults(
       ObjectType.create(hash).substitute(substitution),
       constraints,
@@ -571,6 +611,8 @@ export class ObjectType extends TauType {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof NullType) {
       throw this._intersectionFailure(other);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       return this._fields.intersect(other._fields, constraints, substitution);
     } else {
@@ -584,6 +626,8 @@ export class ObjectType extends TauType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
@@ -591,6 +635,14 @@ export class ObjectType extends TauType {
     } else {
       throw this._unificationFailure(other);
     }
+  }
+
+  public union(
+    other: ObjectType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    return this._fields.union(other._fields, constraints, substitution);
   }
 }
 
@@ -638,6 +690,8 @@ export class ListType extends TauType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       ({ constraints, substitution } = this.leq(other, constraints, substitution));
       return new TypingResults(this.substitute(substitution), constraints, substitution);
@@ -659,6 +713,8 @@ export class ListType extends TauType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
@@ -683,9 +739,11 @@ export class TupleType extends TauType {
   }
 
   public getFreeVariables(): Set<string> {
-    return this.elements.reduce(
-      (variables, element) => new Set<string>([...variables, ...element.getFreeVariables()]),
-      new Set<string>(),
+    return new Set<string>(
+      this.elements.reduce<string[]>(
+        (variables, element) => [...variables, ...element.getFreeVariables()],
+        [],
+      ),
     );
   }
 
@@ -718,6 +776,8 @@ export class TupleType extends TauType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       ({ constraints, substitution } = this.leq(other, constraints, substitution));
       return new TypingResults(this.substitute(substitution), constraints, substitution);
@@ -749,6 +809,8 @@ export class TupleType extends TauType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
@@ -823,6 +885,8 @@ export class UndefinedType extends IotaType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -853,6 +917,8 @@ export class NullType extends IotaType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof NullType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof UnknownType) {
       return new TypingResults(other, constraints, substitution);
     } else {
@@ -865,6 +931,8 @@ export class NullType extends IotaType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof NullType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else {
       throw this._unificationFailure(other);
     }
@@ -905,6 +973,8 @@ export class UnknownType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
@@ -957,6 +1027,8 @@ export class BooleanType extends IotaType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof BooleanType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       ({ constraints, substitution } = this.leq(other, constraints, substitution));
       return new TypingResults(this, constraints, substitution);
@@ -972,6 +1044,8 @@ export class BooleanType extends IotaType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof BooleanType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
@@ -1011,6 +1085,8 @@ export class ComplexType extends IotaType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof ComplexType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       ({ constraints, substitution } = this.leq(other, constraints, substitution));
       return new TypingResults(this, constraints, substitution);
@@ -1032,6 +1108,8 @@ export class ComplexType extends IotaType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof ComplexType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
       let fields: Context<TauType>;
       ({ fields, constraints, substitution } = other.bindFields(constraints, substitution));
@@ -1069,6 +1147,8 @@ export class RealType extends IotaType {
   ): TypingResults {
     if (other instanceof VariableType) {
       return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
@@ -1092,6 +1172,8 @@ export class RealType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
@@ -1136,6 +1218,8 @@ export class RationalType extends IotaType {
   ): TypingResults {
     if (other instanceof VariableType) {
       return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
@@ -1159,6 +1243,8 @@ export class RationalType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
@@ -1204,6 +1290,8 @@ export class IntegerType extends IotaType {
   ): TypingResults {
     if (other instanceof VariableType) {
       return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
@@ -1224,6 +1312,8 @@ export class IntegerType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
@@ -1270,6 +1360,8 @@ export class NaturalType extends IotaType {
   ): TypingResults {
     if (other instanceof VariableType) {
       return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
       other instanceof ComplexType ||
@@ -1291,6 +1383,8 @@ export class NaturalType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (
       other instanceof UndefinedType ||
@@ -1338,6 +1432,8 @@ export class StringType extends IotaType {
   ): TypingResults {
     if (other instanceof VariableType) {
       return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof StringType) {
       return new TypingResults(this, constraints, substitution);
     } else if (other instanceof ObjectType) {
@@ -1352,6 +1448,8 @@ export class StringType extends IotaType {
 
   public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
     if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType || other instanceof StringType) {
       return new Environment(constraints, substitution);
@@ -1412,6 +1510,8 @@ export class LambdaType extends TauType {
       return other.intersect(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new TypingResults(this, constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.intersect(this, constraints, substitution);
     } else if (other instanceof LambdaType) {
       let left: TauType;
       ({
@@ -1443,9 +1543,151 @@ export class LambdaType extends TauType {
       return other.geq(this, constraints, substitution);
     } else if (other instanceof UndefinedType) {
       return new Environment(constraints, substitution);
+    } else if (other instanceof UnionType) {
+      return other.geq(this, constraints, substitution);
     } else if (other instanceof LambdaType) {
       ({ constraints, substitution } = other.left.leq(this.left, constraints, substitution));
       return this.right.leq(other.right, constraints, substitution);
+    } else {
+      throw this._unificationFailure(other);
+    }
+  }
+}
+
+export class UnionType extends TauType {
+  private constructor(public readonly types: TauType[]) {
+    super();
+  }
+
+  public static create(types: TauType[]): TauType {
+    if (types.length < 1) {
+      throw new TypeError(`union types must have at least 1 subtype`);
+    }
+    const flattened: TauType[] = [];
+    types.forEach(type => {
+      if (type instanceof UnionType) {
+        flattened.push(...type.types);
+      } else {
+        flattened.push(type);
+      }
+    });
+    const removed = flattened.map(() => false);
+    for (let i = 0; i < flattened.length - 1; i++) {
+      for (let j = i + 1; j < flattened.length; j++) {
+        if (flattened[i].leqSimple(flattened[j])) {
+          removed[i] = true;
+        } else if (flattened[j].leqSimple(flattened[i])) {
+          removed[j] = true;
+        }
+      }
+    }
+    // TODO: merge objects using `ObjectType.union()`.
+    const optimized: TauType[] = [];
+    for (let i = 0; i < flattened.length; i++) {
+      if (!removed[i]) {
+        optimized.push(flattened[i]);
+      }
+    }
+    if (optimized.length > 1) {
+      return new UnionType(optimized);
+    } else if (optimized.length > 0) {
+      return optimized[0];
+    } else {
+      throw new TypeError(
+        `cannot find union across the following types: ${types
+          .map(type => `'${type}'`)
+          .join(', ')}`,
+      );
+    }
+  }
+
+  public toString(): string {
+    return this.types.map(type => `(${type.toString()})`).join('|');
+  }
+
+  public getFreeVariables(): Set<string> {
+    return new Set<string>(
+      this.types.reduce<string[]>(
+        (variables, type) => [...variables, ...type.getFreeVariables()],
+        [],
+      ),
+    );
+  }
+
+  public substitute(substitution: Substitution): TauType {
+    return UnionType.create(this.types.map(type => type.substitute(substitution)));
+  }
+
+  public bindThis(
+    thisType: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const result = UnionType.create(
+      this.types.map(type => {
+        ({ type, constraints, substitution } = type.bindThis(thisType, constraints, substitution));
+        return type;
+      }),
+    );
+    return new TypingResults(result.substitute(substitution), constraints, substitution);
+  }
+
+  public getField(
+    name: string,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    const result = UnionType.create(
+      this.types.map(type => {
+        ({ type, constraints, substitution } = type.getField(name, constraints, substitution));
+        return type;
+      }),
+    );
+    return new TypingResults(result.substitute(substitution), constraints, substitution);
+  }
+
+  public intersect(
+    other: TauType,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypingResults {
+    if (other instanceof VariableType) {
+      return other.intersect(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new TypingResults(this, constraints, substitution);
+    } else {
+      const result = UnionType.create(
+        this.types.map(type => {
+          ({ type, constraints, substitution } = type.intersect(other, constraints, substitution));
+          return type;
+        }),
+      );
+      return new TypingResults(result.substitute(substitution), constraints, substitution);
+    }
+  }
+
+  public leq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
+    if (other instanceof VariableType) {
+      return other.geq(this, constraints, substitution);
+    } else if (other instanceof UndefinedType) {
+      return new Environment(constraints, substitution);
+    } else {
+      ({ constraints, substitution } = this.types.reduce<Environment>(
+        ({ constraints, substitution }, type) => type.leq(other, constraints, substitution),
+        new Environment(constraints, substitution),
+      ));
+      return new TypingResults(this.substitute(substitution), constraints, substitution);
+    }
+  }
+
+  public geq(other: TauType, constraints: Constraints, substitution: Substitution): Environment {
+    const environments = this.types
+      .map(type => other.leqNoThrow(type, constraints, substitution))
+      .filter(environment => environment !== null);
+    if (environments.length > 1) {
+      throw new TypeError(`ambiguous unification between '${other}' and '${this}'`);
+    } else if (environments.length > 0) {
+      return environments[0]!;
     } else {
       throw this._unificationFailure(other);
     }
