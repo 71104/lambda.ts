@@ -280,6 +280,8 @@ export class Parser {
         return FieldNode.create(this._lexer.step().substring(1));
       case 'identifier':
         return new VariableNode(this._lexer.step());
+      case 'keyword:and':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'keyword:false':
         this._lexer.next();
         return new LiteralNode(BooleanValue.FALSE, BooleanType.INSTANCE);
@@ -295,6 +297,8 @@ export class Parser {
       case 'keyword:null':
         this._lexer.next();
         return new LiteralNode(NullValue.INSTANCE, NullType.INSTANCE);
+      case 'keyword:or':
+        return FieldNode.createBinaryOperator(this._lexer.step());
       case 'keyword:true':
         this._lexer.next();
         return new LiteralNode(BooleanValue.TRUE, BooleanType.INSTANCE);
