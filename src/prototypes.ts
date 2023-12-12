@@ -167,6 +167,14 @@ class Prototype<Value extends ValueInterface> {
 
 Prototype.createForIotaType(BooleanType, BooleanValue)
   .method('%u:not', '.b', self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
+  .operator1('and')
+  .operator2('and', 'b.b', (self, lhs) =>
+    lhs.cast(BooleanValue).value && self.value ? BooleanValue.TRUE : BooleanValue.FALSE,
+  )
+  .operator1('or')
+  .operator2('or', 'b.b', (self, lhs) =>
+    lhs.cast(BooleanValue).value || self.value ? BooleanValue.TRUE : BooleanValue.FALSE,
+  )
   .method('str', '.s', self => new StringValue(self.value ? 'true' : 'false'))
   .close();
 

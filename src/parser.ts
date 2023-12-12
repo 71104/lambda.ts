@@ -394,17 +394,41 @@ export class Parser {
   }
 
   private _parse6(terminators: Token[]): NodeInterface {
+    terminators = terminators.concat(['keyword:and']);
+    let node = this._parse5(terminators);
+    while ('keyword:and' === this._lexer.token) {
+      node = new ApplicationNode(
+        new ApplicationNode(FieldNode.createBinaryOperator(this._lexer.step()), node),
+        this._parse5(terminators),
+      );
+    }
+    return node;
+  }
+
+  private _parse7(terminators: Token[]): NodeInterface {
+    terminators = terminators.concat(['keyword:or']);
+    let node = this._parse6(terminators);
+    while ('keyword:or' === this._lexer.token) {
+      node = new ApplicationNode(
+        new ApplicationNode(FieldNode.createBinaryOperator(this._lexer.step()), node),
+        this._parse6(terminators),
+      );
+    }
+    return node;
+  }
+
+  private _parse8(terminators: Token[]): NodeInterface {
     const terminatorsPlusDollar = terminators.concat('dollar');
-    let node = this._parse5(terminatorsPlusDollar);
+    let node = this._parse7(terminatorsPlusDollar);
     while (!terminators.includes(this._lexer.token)) {
       this._lexer.skip('dollar');
-      node = new ApplicationNode(node, this._parse5(terminatorsPlusDollar));
+      node = new ApplicationNode(node, this._parse7(terminatorsPlusDollar));
     }
     return node;
   }
 
   private _parseRoot(terminators: Token[]): NodeInterface {
-    return this._parse6(terminators);
+    return this._parse8(terminators);
   }
 
   public parse(): NodeInterface {

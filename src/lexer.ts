@@ -13,6 +13,7 @@ export type Token =
   | 'fat-arrow'
   | 'field'
   | 'identifier'
+  | 'keyword:and'
   | 'keyword:boolean'
   | 'keyword:complex'
   | 'keyword:else'
@@ -26,6 +27,7 @@ export type Token =
   | 'keyword:natural'
   | 'keyword:not'
   | 'keyword:null'
+  | 'keyword:or'
   | 'keyword:real'
   | 'keyword:scheme'
   | 'keyword:string'
@@ -67,6 +69,7 @@ export class Lexer {
     ['keyword:string', /^string\b/],
     ['keyword:scheme', /^scheme\b/],
     ['keyword:real', /^real\b/],
+    ['keyword:or', /^or\b/],
     ['keyword:null', /^null\b/],
     ['keyword:not', /^not\b/],
     ['keyword:natural', /^natural\b/],
@@ -80,6 +83,7 @@ export class Lexer {
     ['keyword:else', /^else\b/],
     ['keyword:complex', /^complex\b/],
     ['keyword:boolean', /^boolean\b/],
+    ['keyword:and', /^and\b/],
     ['identifier', /^[A-Za-z_][A-Za-z0-9_]*/],
 
     // field
