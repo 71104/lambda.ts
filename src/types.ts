@@ -409,6 +409,10 @@ export class VariableType extends TauType {
 export class FieldSet {
   public constructor(private _fields: TypeContext = EMPTY_TYPE_CONTEXT) {}
 
+  public toString(): string {
+    return `{${this._fields.toArray(name => name).join(', ')}}`;
+  }
+
   public add(fields: { [name: string]: TypeInterface }): FieldSet {
     this._fields = this._fields.pushAll(fields);
     return this;
@@ -573,7 +577,7 @@ export class ObjectType extends TauType {
   }
 
   public toString(): string {
-    return `object`;
+    return this._fields.toString();
   }
 
   public getFreeVariables(): Set<string> {
