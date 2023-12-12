@@ -25,7 +25,11 @@ export class TypeScheme implements TypeInterface {
     const variables: string[] = [];
     let type: TypeInterface = this;
     while (type instanceof TypeScheme) {
-      variables.push(type.name);
+      if (type.constraint instanceof UndefinedType) {
+        variables.push(type.name);
+      } else {
+        variables.push(`${type.name}: ${type.constraint}`);
+      }
       type = type.inner;
     }
     return `scheme ${variables.join(', ')} => ${type}`;
@@ -190,7 +194,7 @@ export abstract class TauType implements TypeInterface {
     throw first._intersectionFailure(second);
   }
 
-  public close(context: TypeContext): TypeInterface {
+  public close(context: TypeContext, constraints: Constraints): TypeInterface {
     const freeVariables = new Set<string>(
       context.reduce<string[]>(
         (variables, _name, type) => [...variables, ...type.getFreeVariables()],
@@ -200,15 +204,15 @@ export abstract class TauType implements TypeInterface {
     let type: TypeInterface = this;
     for (const name of this.getFreeVariables()) {
       if (!freeVariables.has(name)) {
-        type = new TypeScheme(name, UndefinedType.INSTANCE, type);
+        type = new TypeScheme(name, constraints.topDef(name, UndefinedType.INSTANCE), type);
       }
     }
     return type;
   }
 
-  public closeAll(): TypeInterface {
+  public closeAll(constraints: Constraints): TypeInterface {
     return [...this.getFreeVariables()].reduce<TypeInterface>(
-      (type, name) => new TypeScheme(name, UndefinedType.INSTANCE, type),
+      (type, name) => new TypeScheme(name, constraints.topDef(name, UndefinedType.INSTANCE), type),
       this,
     );
   }

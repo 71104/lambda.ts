@@ -507,7 +507,7 @@ export class LetNode implements NodeInterface {
     }
     context = context.map((_name, type) => type.substitute(substitution));
     return this.rest.getType(
-      context.push(this.name, expression.close(context)),
+      context.push(this.name, expression.close(context, constraints)),
       constraints,
       substitution,
     );
