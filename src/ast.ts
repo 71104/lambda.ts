@@ -282,11 +282,11 @@ export class FieldNode implements NodeInterface {
   }
 
   public static createUnaryOperator(name: string): LambdaNode {
-    return FieldNode.create(`#u:${name}`);
+    return FieldNode.create(`%u:${name}`);
   }
 
   public static createBinaryOperator(name: string): LambdaNode {
-    return FieldNode.create(`#b1:${name}`);
+    return FieldNode.create(`%b1:${name}`);
   }
 
   public getFreeVariables(): Set<string> {

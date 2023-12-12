@@ -122,14 +122,14 @@ class Prototype<Value extends ValueInterface> {
 
   public operator1(name: string): Prototype<Value> {
     return this.methodRawIncludingSelf(
-      `#b1:${name}`,
+      `%b1:${name}`,
       new TypeScheme(
         'result',
         UndefinedType.INSTANCE,
         new TypeScheme(
           'rhs',
           ObjectType.create({
-            [`#b2:${this._selfName}:${name}`]: new LambdaType(
+            [`%b2:${this._selfName}:${name}`]: new LambdaType(
               ObjectType.EMPTY,
               new LambdaType(this._selfType, new VariableType('result')),
             ),
@@ -140,7 +140,7 @@ class Prototype<Value extends ValueInterface> {
           ),
         ),
       ),
-      (self, rhs) => rhs.getField(`#b2:${this._selfName}:${name}`).cast(Closure).apply(self),
+      (self, rhs) => rhs.getField(`%b2:${this._selfName}:${name}`).cast(Closure).apply(self),
     );
   }
 
@@ -156,7 +156,7 @@ class Prototype<Value extends ValueInterface> {
     const [, lhsName, resultName] = match;
     const lhs = IOTA_TYPES[lhsName];
     const result = IOTA_TYPES[resultName];
-    return this.methodRaw(`#b2:${lhs}:${name}`, new LambdaType(lhs, result), fn);
+    return this.methodRaw(`%b2:${lhs}:${name}`, new LambdaType(lhs, result), fn);
   }
 
   public close(): void {
@@ -166,12 +166,12 @@ class Prototype<Value extends ValueInterface> {
 }
 
 Prototype.createForIotaType(BooleanType, BooleanValue)
-  .method('#u:not', '.b', self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
+  .method('%u:not', '.b', self => (self.value ? BooleanValue.FALSE : BooleanValue.TRUE))
   .method('str', '.s', self => new StringValue(self.value ? 'true' : 'false'))
   .close();
 
 Prototype.createForIotaType(ComplexType, ComplexValue)
-  .method('#u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
+  .method('%u:-', '.c', self => new ComplexValue(-self.real, -self.imaginary))
   .operator1('+')
   .operator2('+', 'c.c', (self, lhs) => {
     const { real, imaginary } = lhs.cast(ComplexValue);
@@ -232,7 +232,7 @@ Prototype.createForIotaType(ComplexType, ComplexValue)
   .close();
 
 Prototype.createForIotaType(RealType, RealValue)
-  .method('#u:-', '.r', self => new RealValue(-self.value))
+  .method('%u:-', '.r', self => new RealValue(-self.value))
   .operator1('+')
   .operator2('+', 'c.c', (self, lhs) => {
     const { real, imaginary } = lhs.cast(ComplexValue);
@@ -277,7 +277,7 @@ Prototype.createForIotaType(RealType, RealValue)
   .close();
 
 Prototype.createForIotaType(RationalType, RationalValue)
-  .method('#u:-', '.t', self => new RationalValue(-self.numerator, self.denominator))
+  .method('%u:-', '.t', self => new RationalValue(-self.numerator, self.denominator))
   .operator1('+')
   .operator2('+', 'c.c', (self, lhs) => {
     const { real, imaginary } = lhs.cast(ComplexValue);
@@ -356,8 +356,8 @@ Prototype.createForIotaType(RationalType, RationalValue)
   .close();
 
 Prototype.createForIotaType(IntegerType, IntegerValue)
-  .method('#u:-', '.i', self => new IntegerValue(-self.value))
-  .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .method('%u:-', '.i', self => new IntegerValue(-self.value))
+  .method('%u:~', '.i', self => new IntegerValue(~self.value))
   .operator1('+')
   .operator2('+', 'c.c', (self, lhs) => {
     const { real, imaginary } = lhs.cast(ComplexValue);
@@ -402,8 +402,8 @@ Prototype.createForIotaType(IntegerType, IntegerValue)
   .close();
 
 Prototype.createForIotaType(NaturalType, NaturalValue)
-  .method('#u:-', '.i', self => new IntegerValue(-self.value))
-  .method('#u:~', '.i', self => new IntegerValue(~self.value))
+  .method('%u:-', '.i', self => new IntegerValue(-self.value))
+  .method('%u:~', '.i', self => new IntegerValue(~self.value))
   .operator1('+')
   .operator2('+', 'c.c', (self, lhs) => {
     const { real, imaginary } = lhs.cast(ComplexValue);

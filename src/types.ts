@@ -90,15 +90,15 @@ export abstract class TauType implements TypeInterface {
    * @returns The constructed TypeError.
    */
   public fieldAccessFailure(name: string): TypeError {
-    if (name.startsWith('#u:')) {
+    if (name.startsWith('%u:')) {
       return new TypeError(`'${this}' doesn't have the unary '${name.substring(3)}' operator`);
-    } else if (name.startsWith('#b1:')) {
+    } else if (name.startsWith('%b1:')) {
       const operator = name.substring(4);
       return new TypeError(
         `'${this}' cannot appear as the left-hand side of the binary '${operator}' operator`,
       );
     } else {
-      const match = name.match(/^#b2:([a-z]+):(.+)$/);
+      const match = name.match(/^%b2:([a-z]+):(.+)$/);
       if (match) {
         const [, lhs, operator] = match;
         return new TypeError(
