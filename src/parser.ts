@@ -41,6 +41,13 @@ import {
 } from './values.js';
 
 import './prototypes.js';
+import {
+  NamePattern,
+  ObjectFieldPattern,
+  ObjectPattern,
+  PatternInterface,
+  TuplePattern,
+} from './patterns.js';
 
 function unescapeString(input: string): string {
   return input
@@ -149,6 +156,61 @@ export class Parser {
     }
   }
 
+  private _parseTuplePattern(): PatternInterface {
+    this._lexer.skip('bracket-left');
+    const elements: (PatternInterface | null)[] = [];
+    while ('bracket-right' !== this._lexer.token) {
+      if ('comma' !== this._lexer.token) {
+        elements.push(this._parsePattern());
+        // @ts-expect-error
+        if ('comma' !== this._lexer.token) {
+          break;
+        } else {
+          this._lexer.next();
+        }
+      } else {
+        elements.push(null);
+        this._lexer.next();
+      }
+    }
+    this._lexer.skip('bracket-right');
+    return new TuplePattern(elements);
+  }
+
+  private _parseObjectPattern(): PatternInterface {
+    this._lexer.skip('curly-left');
+    const fields: ObjectFieldPattern[] = [];
+    while ('curly-right' !== this._lexer.token) {
+      const name = this._lexer.expect('identifier');
+      if ('colon' !== this._lexer.token) {
+        fields.push(new ObjectFieldPattern(name, null));
+      } else {
+        this._lexer.next();
+        fields.push(new ObjectFieldPattern(name, this._parsePattern()));
+      }
+      if ('comma' !== this._lexer.token) {
+        break;
+      } else {
+        this._lexer.next();
+      }
+    }
+    this._lexer.skip('curly-right');
+    return new ObjectPattern(fields);
+  }
+
+  private _parsePattern(): PatternInterface {
+    switch (this._lexer.token) {
+      case 'identifier':
+        return new NamePattern(this._lexer.step());
+      case 'bracket-left':
+        return this._parseTuplePattern();
+      case 'curly-left':
+        return this._parseObjectPattern();
+      default:
+        throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
+    }
+  }
+
   private _parseTemplate(): NodeInterface {
     const pieces: NodeInterface[] = [
       new LiteralNode(
@@ -203,17 +265,17 @@ export class Parser {
   }
 
   private _parseLetInternal(terminators: Token[]): NodeInterface {
-    const name = this._lexer.expect('identifier');
+    const pattern = this._parsePattern();
     const type = this._parseOptionalType();
     this._lexer.skip('assign');
     const expression = this._parseRoot(['comma', 'keyword:in']);
     switch (this._lexer.token) {
       case 'comma':
         this._lexer.next();
-        return new LetNode(name, type, expression, this._parseLetInternal(terminators));
+        return new LetNode(pattern, type, expression, this._parseLetInternal(terminators));
       case 'keyword:in':
         this._lexer.next();
-        return new LetNode(name, type, expression, this._parseRoot(terminators));
+        return new LetNode(pattern, type, expression, this._parseRoot(terminators));
       default:
         throw new InternalError(`unexpected token '${this._lexer.token}'`);
     }

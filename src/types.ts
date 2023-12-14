@@ -194,14 +194,18 @@ export abstract class TauType implements TypeInterface {
     throw first._intersectionFailure(second);
   }
 
-  public close(context: TypeContext, constraints: Constraints): TypeInterface {
+  public close(
+    context: TypeContext,
+    constraints: Constraints,
+    substitution: Substitution,
+  ): TypeInterface {
     const freeVariables = new Set<string>(
       context.reduce<string[]>(
         (variables, _name, type) => [...variables, ...type.getFreeVariables()],
         [],
       ),
     );
-    let type: TypeInterface = this;
+    let type: TypeInterface = this.substitute(substitution);
     for (const name of this.getFreeVariables()) {
       if (!freeVariables.has(name)) {
         type = new TypeScheme(name, constraints.topDef(name, UndefinedType.INSTANCE), type);
@@ -210,10 +214,11 @@ export abstract class TauType implements TypeInterface {
     return type;
   }
 
-  public closeAll(constraints: Constraints): TypeInterface {
-    return [...this.getFreeVariables()].reduce<TypeInterface>(
+  public closeAll(constraints: Constraints, substitution: Substitution): TypeInterface {
+    const type = this.substitute(substitution);
+    return [...type.getFreeVariables()].reduce<TypeInterface>(
       (type, name) => new TypeScheme(name, constraints.topDef(name, UndefinedType.INSTANCE), type),
-      this,
+      type,
     );
   }
 }
@@ -1581,11 +1586,15 @@ export class UnionType extends TauType {
     });
     const removed = flattened.map(() => false);
     for (let i = 0; i < flattened.length - 1; i++) {
-      for (let j = i + 1; j < flattened.length; j++) {
-        if (flattened[i].leqSimple(flattened[j])) {
-          removed[i] = true;
-        } else if (flattened[j].leqSimple(flattened[i])) {
-          removed[j] = true;
+      if (!removed[i]) {
+        for (let j = i + 1; j < flattened.length; j++) {
+          if (!removed[j]) {
+            if (flattened[i].leqSimple(flattened[j])) {
+              removed[i] = true;
+            } else if (flattened[j].leqSimple(flattened[i])) {
+              removed[j] = true;
+            }
+          }
         }
       }
     }

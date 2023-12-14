@@ -24,5 +24,5 @@ export function evaluate(input: string): [TypeInterface, ValueInterface] {
     GLOBAL_TYPE_SUBSTITUTION,
   );
   const value = ast.evaluate(GLOBAL_VALUE_CONTEXT);
-  return [type.substitute(substitution).closeAll(constraints), value];
+  return [type.substitute(substitution).closeAll(constraints, substitution), value];
 }

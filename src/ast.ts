@@ -1,4 +1,5 @@
-import { InternalError, RuntimeError } from './errors.js';
+import { InternalError, RuntimeError, SyntaxError } from './errors.js';
+import { PatternInterface } from './patterns.js';
 import {
   BooleanType,
   Constraints,
@@ -123,7 +124,16 @@ export class ObjectFieldNode {
 }
 
 export class ObjectLiteralNode implements NodeInterface {
-  public constructor(public readonly fields: ObjectFieldNode[]) {}
+  public constructor(public readonly fields: ObjectFieldNode[]) {
+    const names = new Set<string>();
+    for (const { name } of fields) {
+      if (names.has(name)) {
+        throw new SyntaxError(`duplicate name ${JSON.stringify(name)} in object literal`);
+      } else {
+        names.add(name);
+      }
+    }
+  }
 
   public getFreeVariables(): Set<string> {
     return this.fields.reduce<Set<string>>(
@@ -478,7 +488,7 @@ export class ApplicationNode implements NodeInterface {
 
 export class LetNode implements NodeInterface {
   public constructor(
-    public readonly name: string,
+    public readonly pattern: PatternInterface,
     public readonly type: TauType | null,
     public readonly expression: NodeInterface,
     public readonly rest: NodeInterface,
@@ -486,7 +496,9 @@ export class LetNode implements NodeInterface {
 
   public getFreeVariables(): Set<string> {
     const variables = this.rest.getFreeVariables();
-    variables.delete(this.name);
+    for (const name of this.pattern.getBoundNames()) {
+      variables.delete(name);
+    }
     return variables;
   }
 
@@ -506,16 +518,18 @@ export class LetNode implements NodeInterface {
       expression = this.type.substitute(substitution);
     }
     context = context.map((_name, type) => type.substitute(substitution));
-    return this.rest.getType(
-      context.push(this.name, expression.close(context, constraints)),
+    ({ context, constraints, substitution } = this.pattern.deconstructType(
+      context,
+      expression,
       constraints,
       substitution,
-    );
+    ));
+    return this.rest.getType(context, constraints, substitution);
   }
 
   public evaluate(context: ValueContext): ValueInterface {
     const value = this.expression.evaluate(context);
-    return this.rest.evaluate(context.push(this.name, value));
+    return this.rest.evaluate(this.pattern.deconstructValue(context, value));
   }
 }
 
