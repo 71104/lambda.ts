@@ -1,6 +1,7 @@
 import { LambdaNode, NativeNode, NodeInterface, SemiNativeNode } from './ast.js';
 import { Context } from './context.js';
 import { InternalError, RuntimeError } from './errors.js';
+import { NamePattern, PatternInterface } from './patterns.js';
 import { UnknownType } from './types.js';
 
 export type ValueConstructor<ValueType extends ValueInterface> =
@@ -498,7 +499,7 @@ export class Closure extends BaseValue implements ValueInterface {
 
   public constructor(
     public readonly context: ValueContext,
-    public readonly name: string,
+    public readonly pattern: PatternInterface,
     public readonly body: NodeInterface,
   ) {
     super();
@@ -509,7 +510,7 @@ export class Closure extends BaseValue implements ValueInterface {
   }
 
   public apply(argument: ValueInterface): ValueInterface {
-    return this.body.evaluate(this.context.push(this.name, argument));
+    return this.body.evaluate(this.pattern.deconstructValue(this.context, argument));
   }
 
   public bindThis(thisValue: ValueInterface): ValueInterface {
@@ -524,25 +525,29 @@ export class Closure extends BaseValue implements ValueInterface {
     }
   }
 
-  private _getArgNames(): string[] {
-    const names = [this.name];
+  private _getArgPatterns(): PatternInterface[] {
+    const patterns = [this.pattern];
     for (let node = this.body; node instanceof LambdaNode; node = node.body) {
-      names.push(node.name);
+      patterns.push(node.pattern);
     }
-    return names;
+    return patterns;
   }
 
   // eslint-disable-next-line @typescript-eslint/ban-types
   public marshal(): Function {
     const node = this.body;
     const context = this.context;
-    const argNames = this._getArgNames();
+    const patterns = this._getArgPatterns();
     return function (...args: unknown[]): unknown {
-      const hash: { [name: string]: ValueInterface } = Object.create(null);
-      // @ts-expect-error
-      hash.this = unmarshal(this);
-      argNames.forEach((name, index) => (hash[name] = unmarshal(args[index])));
-      return node.evaluate(context.pushAll(hash)).marshal();
+      return node
+        .evaluate(
+          patterns.reduce(
+            (context, pattern, index) => pattern.deconstructValue(context, unmarshal(args[index])),
+            // @ts-expect-error
+            context.push('this', unmarshal(this)),
+          ),
+        )
+        .marshal();
     };
   }
 
@@ -550,8 +555,8 @@ export class Closure extends BaseValue implements ValueInterface {
   public static unmarshal(fn: Function): Closure {
     return new Closure(
       EMPTY_VALUE_CONTEXT,
-      'this',
-      new LambdaNode('arguments', null, new NativeNode(fn)),
+      new NamePattern('this'),
+      new LambdaNode(new NamePattern('arguments'), null, new NativeNode(fn)),
     );
   }
 
@@ -562,12 +567,12 @@ export class Closure extends BaseValue implements ValueInterface {
       throw new InternalError('cannot wrap a no-arg function');
     }
     let node = new LambdaNode(
-      '$' + arity,
+      new NamePattern('$' + arity),
       null,
       new SemiNativeNode(UnknownType.INSTANCE, fn as (...args: ValueInterface[]) => ValueInterface),
     );
     for (let i = arity - 1; i > 0; i--) {
-      node = new LambdaNode('$' + i, null, node);
+      node = new LambdaNode(new NamePattern('$' + i), null, node);
     }
     return node.evaluate(EMPTY_VALUE_CONTEXT);
   }

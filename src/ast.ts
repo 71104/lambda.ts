@@ -1,5 +1,5 @@
 import { InternalError, RuntimeError, SyntaxError } from './errors.js';
-import { PatternInterface } from './patterns.js';
+import { NamePattern, PatternInterface } from './patterns.js';
 import {
   BooleanType,
   Constraints,
@@ -285,7 +285,7 @@ export class FieldNode implements NodeInterface {
 
   public static create(name: string): LambdaNode {
     return new LambdaNode(
-      '$1',
+      new NamePattern('$1'),
       ObjectType.create({ [name]: VariableType.getNew() }),
       new FieldNode('$1', name),
     );
@@ -332,14 +332,16 @@ export class FieldNode implements NodeInterface {
 
 export class LambdaNode implements NodeInterface {
   public constructor(
-    public readonly name: string,
+    public readonly pattern: PatternInterface,
     public readonly type: TypeInterface | null,
     public readonly body: NodeInterface,
   ) {}
 
   public getFreeVariables(): Set<string> {
     const variables = this.body.getFreeVariables();
-    variables.delete(this.name);
+    for (const name of this.pattern.getBoundNames()) {
+      variables.delete(name);
+    }
     return variables;
   }
 
@@ -354,12 +356,14 @@ export class LambdaNode implements NodeInterface {
       ({ type, constraints, substitution } = this.type.instantiate(constraints, substitution));
       constraints = constraints.push(argument.name, type);
     }
-    let type: TauType;
-    ({ type, constraints, substitution } = this.body.getType(
-      context.push(this.name, argument),
+    ({ context, constraints, substitution } = this.pattern.deconstructType(
+      context,
+      argument,
       constraints,
       substitution,
     ));
+    let type: TauType;
+    ({ type, constraints, substitution } = this.body.getType(context, constraints, substitution));
     return new TypingResults(
       new LambdaType(argument, type).substitute(substitution),
       constraints,
@@ -368,7 +372,7 @@ export class LambdaNode implements NodeInterface {
   }
 
   public evaluate(context: ValueContext): Closure {
-    return new Closure(context, this.name, this.body);
+    return new Closure(context, this.pattern, this.body);
   }
 }
 
@@ -536,15 +540,15 @@ export class LetNode implements NodeInterface {
 export class FixNode implements NodeInterface {
   private static readonly _VALUE = new Closure(
     EMPTY_VALUE_CONTEXT,
-    'f',
+    new NamePattern('f'),
     new ApplicationNode(
       new LambdaNode(
-        'x',
+        new NamePattern('x'),
         null,
         new ApplicationNode(
           new VariableNode('f'),
           new LambdaNode(
-            'v',
+            new NamePattern('v'),
             null,
             new ApplicationNode(
               new ApplicationNode(new VariableNode('x'), new VariableNode('x')),
@@ -554,12 +558,12 @@ export class FixNode implements NodeInterface {
         ),
       ),
       new LambdaNode(
-        'x',
+        new NamePattern('x'),
         null,
         new ApplicationNode(
           new VariableNode('f'),
           new LambdaNode(
-            'v',
+            new NamePattern('v'),
             null,
             new ApplicationNode(
               new ApplicationNode(new VariableNode('x'), new VariableNode('x')),

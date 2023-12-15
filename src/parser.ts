@@ -245,15 +245,15 @@ export class Parser {
   }
 
   private _parseLambdaInternal(terminators: Token[]): NodeInterface {
-    const name = this._lexer.expect('identifier');
+    const pattern = this._parsePattern();
     const type = this._parseOptionalType();
     switch (this._lexer.token) {
       case 'comma':
         this._lexer.next();
-        return new LambdaNode(name, type, this._parseLambdaInternal(terminators));
+        return new LambdaNode(pattern, type, this._parseLambdaInternal(terminators));
       case 'arrow':
         this._lexer.next();
-        return new LambdaNode(name, type, this._parseRoot(terminators));
+        return new LambdaNode(pattern, type, this._parseRoot(terminators));
       default:
         throw new SyntaxError(`unexpected token '${this._lexer.token}'`);
     }
