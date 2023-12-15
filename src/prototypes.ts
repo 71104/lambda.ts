@@ -229,6 +229,32 @@ Prototype.createForIotaType(ComplexType, ComplexValue)
     (self, lhs) => new ComplexValue(lhs.cast(NaturalValue).value - self.real, -self.imaginary),
   )
   .operator1('*')
+  .operator2('*', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(
+      real * self.real - imaginary * self.imaginary,
+      real * self.imaginary + imaginary * self.real,
+    );
+  })
+  .operator2('*', 'r.c', (self, lhs) => {
+    const value = lhs.cast(RealValue).value;
+    return new ComplexValue(value * self.real, value * self.imaginary);
+  })
+  .operator2('*', 't.c', (self, lhs) => {
+    const { numerator, denominator } = lhs.cast(RationalValue);
+    return new ComplexValue(
+      (numerator * self.real) / denominator,
+      (numerator * self.imaginary) / denominator,
+    );
+  })
+  .operator2('*', 'i.c', (self, lhs) => {
+    const value = lhs.cast(IntegerValue).value;
+    return new ComplexValue(value * self.real, value * self.imaginary);
+  })
+  .operator2('*', 'n.c', (self, lhs) => {
+    const value = lhs.cast(NaturalValue).value;
+    return new ComplexValue(value * self.real, value * self.imaginary);
+  })
   .operator1('/')
   .operator1('**')
   .method('str', '.s', self => {
@@ -270,6 +296,17 @@ Prototype.createForIotaType(RealType, RealValue)
   .operator2('-', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value - self.value))
   .operator2('-', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value - self.value))
   .operator1('*')
+  .operator2('*', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(real * self.value, imaginary * self.value);
+  })
+  .operator2('*', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value * self.value))
+  .operator2('*', 't.r', (self, lhs) => {
+    const { numerator, denominator } = lhs.cast(RationalValue);
+    return new RealValue((numerator * self.value) / denominator);
+  })
+  .operator2('*', 'i.r', (self, lhs) => new RealValue(lhs.cast(IntegerValue).value * self.value))
+  .operator2('*', 'n.r', (self, lhs) => new RealValue(lhs.cast(NaturalValue).value * self.value))
   .operator1('/')
   .operator2('/', 'r.r', (self, lhs) => new RealValue(lhs.cast(RealValue).value / self.value))
   .operator2('/', 't.r', (self, lhs) => {
@@ -377,6 +414,34 @@ Prototype.createForIotaType(RationalType, RationalValue)
       ),
   )
   .operator1('*')
+  .operator2('*', 'c.c', (self, lhs) => {
+    const { real, imaginary } = lhs.cast(ComplexValue);
+    return new ComplexValue(
+      (real * self.numerator) / self.denominator,
+      (imaginary * self.numerator) / self.denominator,
+    );
+  })
+  .operator2(
+    '*',
+    'r.r',
+    (self, lhs) => new RealValue((lhs.cast(RealValue).value * self.numerator) / self.denominator),
+  )
+  .operator2('*', 't.t', (self, lhs) => {
+    const { numerator, denominator } = lhs.cast(RationalValue);
+    return new RationalValue(numerator * self.numerator, denominator * self.denominator);
+  })
+  .operator2(
+    '*',
+    'i.t',
+    (self, lhs) =>
+      new RationalValue(lhs.cast(IntegerValue).value * self.numerator, self.denominator),
+  )
+  .operator2(
+    '*',
+    'n.t',
+    (self, lhs) =>
+      new RationalValue(lhs.cast(NaturalValue).value * self.numerator, self.denominator),
+  )
   .operator1('/')
   .operator2(
     '/',
